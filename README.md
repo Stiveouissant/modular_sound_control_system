@@ -1,2 +1,2 @@
-# modular_sound_control_system
- Engineer Project
+# Modułowy system sterowania za pomocą dźwięku
+Projekt inżynierski
