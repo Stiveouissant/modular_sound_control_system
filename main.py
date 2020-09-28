@@ -52,7 +52,7 @@ class Recorder(QWidget):
     def voice_recording(self):
         fs = 44100
         second = 3
-        print("recording...")
+        print("recording......")
         record_voice = sounddevice.rec(int(second * fs), samplerate=fs, channels=1)
         sounddevice.wait()
         write("output.wav", fs, record_voice)
