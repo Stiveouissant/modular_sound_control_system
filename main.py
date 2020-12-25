@@ -1,13 +1,16 @@
 # import sounddevice
 # from scipy.io.wavfile import write
-from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QMenuBar, QMenu, QAction, QStatusBar
+from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QMenuBar, QMenu, QAction, QStatusBar, \
+    QInputDialog
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QLabel, QGridLayout
 from PyQt5.QtWidgets import QLineEdit, QPushButton, QHBoxLayout
 from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtCore import Qt
 
-from gui import Ui_Widget
+from gui import Ui_Widget, LoginDialog
+import database
+from tabmodel import TabModel
 
 
 class MainWindow(QMainWindow):
@@ -106,7 +109,7 @@ class MainWindow(QMainWindow):
 
 
 class MainWidget(QWidget, Ui_Widget):
-
+    """Widget that handles the main application"""
     # default recognition mode
     recognition_mode = 'Speech'
 
@@ -114,18 +117,13 @@ class MainWidget(QWidget, Ui_Widget):
         super(MainWidget, self).__init__(parent)
         self.setup_ui(self)
 
-        # self.logujBtn.clicked.connect(self.loguj)
-        self.koniecBtn.clicked.connect(self.koniec)
-        # self.dodajBtn.clicked.connect(self.dodaj)
-        # self.zapiszBtn.clicked.connect(self.zapisz)
+        self.logujBtn.clicked.connect(self.logon)
+        self.dodajBtn.clicked.connect(self.add)
+        self.zapiszBtn.clicked.connect(self.save)
 
         # przyciski PushButton ###
         for btn in self.button_group.buttons():
             btn.clicked.connect(self.mode_change)
-
-
-    def koniec(self):
-        self.close()
 
     def mode_change(self):
         which_button = self.sender()
@@ -137,58 +135,57 @@ class MainWidget(QWidget, Ui_Widget):
         recognition_mode = which_button.text()
         print(recognition_mode)
 
+    def save(self):
+        database.saveData(model.table)
+        model.layoutChanged.emit()
 
-    # def zapisz(self):
-    #     baza.zapiszDane(model.tabela)
-    #     model.layoutChanged.emit()
-    #
-    # def dodaj(self):
-    #     """ Dodawanie nowego zadania """
-    #     zadanie, ok = QInputDialog.getMultiLineText(self, 'Zadanie', 'Co jest do zrobienia?')
-    #     if not ok or not zadanie.strip():
-    #         QMessageBox.critical(self, 'Błąd', 'Zadanie nie może być puste.', QMessageBox.Ok)
-    #         return
-    #
-    #     zadanie = baza.dodajZadanie(self.osoba, zadanie)
-    #     model.tabela.append(zadanie)
-    #     model.layoutChanged.emit()  # wyemituj sygnał: zaszła zmiana!
-    #     if len(model.tabela) == 1:  # jeżeli to pierwsze zadanie
-    #         self.odswiezWidok()     # trzeba przekazać model do widoku
-    #
-    # def loguj(self):
-    #     """ Logowanie użytkownika """
-    #     login, haslo, ok = LoginDialog.getLoginHaslo(self)
-    #     if not ok:
-    #         return
-    #
-    #     if not login or not haslo:
-    #         QMessageBox.warning(self, 'Błąd',
-    #                             'Pusty login lub hasło!', QMessageBox.Ok)
-    #         return
-    #
-    #     self.osoba = baza.loguj(login, haslo)
-    #     if self.osoba is None:
-    #         QMessageBox.critical(self, 'Błąd', 'Błędne hasło!', QMessageBox.Ok)
-    #         return
-    #
-    #     QMessageBox.information(self,
-    #         'Dane logowania', 'Podano: ' + login + ' ' + haslo, QMessageBox.Ok)
-    #
-    #     zadania = baza.czytajDane(self.osoba)
-    #     model.aktualizuj(zadania)
-    #     model.layoutChanged.emit()
-    #     self.odswiezWidok()
-    #     self.dodajBtn.setEnabled(True)
-    #     self.zapiszBtn.setEnabled(True)
-    #
-    # def odswiezWidok(self):
-    #     self.widok.setModel(model)  # przekazanie modelu do widoku
-    #     self.widok.hideColumn(0)  # ukrywamy kolumnę id
-    #     # ograniczenie szerokości ostatniej kolumny
-    #     self.widok.horizontalHeader().setStretchLastSection(True)
-    #     # dopasowanie szerokości kolumn do zawartości
-    #     self.widok.resizeColumnsToContents()
-    #
+    def add(self):
+        """ Adds new tasks """
+        task, ok = QInputDialog.getMultiLineText(self, 'Zadanie', 'Co jest do zrobienia?')
+        if not ok or not task.strip():
+            QMessageBox.critical(self, 'Błąd', 'Zadanie nie może być puste.', QMessageBox.Ok)
+            return
+
+        task = database.addTask(self.profile, task)
+        model.table.append(task)
+        model.layoutChanged.emit()  # signal that there was a change
+        if len(model.table) == 1:  # if this is a first task
+            self.refresh_view()     # model needs to send to view
+
+    def logon(self):
+        """ Setup profile """
+        login, password, ok = LoginDialog.getLoginHaslo(self)
+        if not ok:
+            return
+
+        if not login or not password:
+            QMessageBox.warning(self, 'Błąd',
+                                'Pusty login lub hasło!', QMessageBox.Ok)
+            return
+
+        self.profile = database.logon(login, password)
+        if self.profile is None:
+            QMessageBox.critical(self, 'Błąd', 'Błędne hasło!', QMessageBox.Ok)
+            return
+
+        QMessageBox.information(self,
+            'Dane logowania', 'Podano: ' + login + ' ' + password, QMessageBox.Ok)
+
+        tasks = database.readData(self.profile)
+        model.update(tasks)
+        model.layoutChanged.emit()
+        self.refresh_view()
+        self.dodajBtn.setEnabled(True)
+        self.zapiszBtn.setEnabled(True)
+
+    def refresh_view(self):
+        self.view.setModel(model)  # przekazanie modelu do widoku
+        self.view.hideColumn(0)  # ukrywamy kolumnę id
+        # ograniczenie szerokości ostatniej kolumny
+        self.view.horizontalHeader().setStretchLastSection(True)
+        # dopasowanie szerokości kolumn do zawartości
+        self.view.resizeColumnsToContents()
+
 
 
 # class Recorder(QWidget):
@@ -263,8 +260,8 @@ class MainWidget(QWidget, Ui_Widget):
 if __name__ == '__main__':
     import sys
     app = QApplication(sys.argv)
-    # baza.polacz()
-    # model = TabModel(baza.pola)
+    database.connect()
+    model = TabModel(database.fields)
     window = MainWindow()
     window.show()
     window.move(350, 200)
