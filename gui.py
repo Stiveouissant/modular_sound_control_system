@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtWidgets import QTableView, QPushButton, QMenuBar, QMainWindow, QWidget, QButtonGroup, QGroupBox
+from PyQt5.QtWidgets import QTableView, QPushButton, QMenuBar, QMainWindow, QWidget, QButtonGroup, QGroupBox, \
+    QRadioButton
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout
 from PyQt5.QtWidgets import QMenu
 from PyQt5.QtCore import Qt
@@ -14,20 +15,19 @@ class Ui_Widget(object):
     def setup_ui(self, widget):
         widget.setObjectName("Widget")
 
-        # przyciski PushButton ###
+        # mode buttons ###
         button_layout_box = QHBoxLayout()
         self.button_group = QButtonGroup()
         self.button_group.setExclusive(False)
         for v in ('Speech', 'Sound', 'Pitch'):
             self.btn = QPushButton(v)
-            self.btn.setStyleSheet("background-color: lightblue")
+            self.btn.setStyleSheet("background-color: white")
             self.button_group.addButton(self.btn)
             button_layout_box.addWidget(self.btn)
-        # grupujemy przyciski
+        # group for recognition mode
         self.button_groupbox = QGroupBox('Recognition mode')
         self.button_groupbox.setLayout(button_layout_box)
         self.button_groupbox.setObjectName('Push')
-        # koniec PushButton ###
 
         info_panel = QHBoxLayout()
         label1 = QLabel("Profile: Profile 1", self)
@@ -35,10 +35,10 @@ class Ui_Widget(object):
         info_panel.addWidget(label1)
         info_panel.addWidget(label2)
 
-        # table data view
+        # table data model view
         self.view = QTableView()
 
-        # przyciski Push ###
+        # lower buttons ###
         self.logujBtn = QPushButton("Za&loguj")
         # self.koniecBtn = QPushButton("&Koniec")
         self.dodajBtn = QPushButton("&Dodaj")
@@ -46,7 +46,7 @@ class Ui_Widget(object):
         self.zapiszBtn = QPushButton("&Zapisz")
         self.zapiszBtn.setEnabled(False)
 
-        # Push buttons layout ###
+        # lower buttons layout ###
         layout = QHBoxLayout()
         layout.addWidget(self.logujBtn)
         layout.addWidget(self.dodajBtn)
@@ -61,46 +61,44 @@ class Ui_Widget(object):
         layoutV.addLayout(layout)
 
 
-class LoginDialog(QDialog):
+class ProfileDialog(QDialog):
     """ Logon window """
 
     def __init__(self, parent=None):
-        super(LoginDialog, self).__init__(parent)
+        super(ProfileDialog, self).__init__(parent)
 
-        # etykiety, pola edycyjne i przyciski ###
-        loginLbl = QLabel('Login')
-        hasloLbl = QLabel('Hasło')
-        self.login = QLineEdit()
-        self.haslo = QLineEdit()
-        self.przyciski = QDialogButtonBox(
+        # radio buttons ###
+        self.radio_layout = QVBoxLayout()
+        for v in ('profile1', 'profile2'):
+            self.radio = QRadioButton(v)
+            self.radio_layout.addWidget(self.radio)
+        self.radio_layout.itemAt(0).widget().setChecked(True)
+
+        self.lower_buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
             Qt.Horizontal, self)
 
-        # układ główny ###
-        uklad = QGridLayout(self)
-        uklad.addWidget(loginLbl, 0, 0)
-        uklad.addWidget(self.login, 0, 1)
-        uklad.addWidget(hasloLbl, 1, 0)
-        uklad.addWidget(self.haslo, 1, 1)
-        uklad.addWidget(self.przyciski, 2, 0, 2, 0)
+        # main layout ###
+        vertical_layout = QVBoxLayout(self)
+        vertical_layout.addLayout(self.radio_layout)
+        vertical_layout.addWidget(self.lower_buttons)
 
-        # sygnały i sloty ###
-        self.przyciski.accepted.connect(self.accept)
-        self.przyciski.rejected.connect(self.reject)
+        # button connects ###
+        self.lower_buttons.accepted.connect(self.accept)
+        self.lower_buttons.rejected.connect(self.reject)
 
-        # właściwości widżetu ###
+        # properties ###
         self.setModal(True)
-        self.setWindowTitle('Logowanie')
+        self.setWindowTitle('Select Profile')
 
-    def loginHaslo(self):
-        return (self.login.text().strip(),
-                self.haslo.text().strip())
+    def get_login(self):
+        for i in range(self.radio_layout.count()):
+            if self.radio_layout.itemAt(i).widget().isChecked():
+                return self.radio_layout.itemAt(i).widget().text()
 
-    # metoda statyczna, tworzy dialog i zwraca (login, haslo, ok)
+    # creates dialog returns profile name and accept from dialog
     @staticmethod
-    def getLoginHaslo(parent=None):
-        dialog = LoginDialog(parent)
-        dialog.login.setFocus()
+    def getProfile(parent=None):
+        dialog = ProfileDialog(parent)
         ok = dialog.exec_()
-        login, haslo = dialog.loginHaslo()
-        return (login, haslo, ok == QDialog.Accepted)
+        return dialog.get_login(), ok == QDialog.Accepted

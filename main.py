@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QLineEdit, QPushButton, QHBoxLayout
 from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtCore import Qt
 
-from gui import Ui_Widget, LoginDialog
+from gui import Ui_Widget, ProfileDialog
 import database
 from tabmodel import TabModel
 
@@ -129,9 +129,9 @@ class MainWidget(QWidget, Ui_Widget):
         which_button = self.sender()
         for btn in self.button_group.buttons():
             if which_button.text() == btn.text():
-                btn.setStyleSheet("background-color: lightgreen")
+                btn.setStyleSheet("background-color: lightgreen;")
             else:
-                btn.setStyleSheet("background-color: lightblue")
+                btn.setStyleSheet("background-color: white")
         recognition_mode = which_button.text()
         print(recognition_mode)
 
@@ -150,26 +150,18 @@ class MainWidget(QWidget, Ui_Widget):
         model.table.append(task)
         model.layoutChanged.emit()  # signal that there was a change
         if len(model.table) == 1:  # if this is a first task
-            self.refresh_view()     # model needs to send to view
+            self.refresh_view()     # model needs to be send to view
 
     def logon(self):
         """ Setup profile """
-        login, password, ok = LoginDialog.getLoginHaslo(self)
+        login, ok = ProfileDialog.getProfile(self)
         if not ok:
             return
 
-        if not login or not password:
-            QMessageBox.warning(self, 'Błąd',
-                                'Pusty login lub hasło!', QMessageBox.Ok)
-            return
-
-        self.profile = database.logon(login, password)
+        self.profile = database.logon(login)
         if self.profile is None:
-            QMessageBox.critical(self, 'Błąd', 'Błędne hasło!', QMessageBox.Ok)
+            QMessageBox.critical(self, 'Error', 'Could not find the profile!', QMessageBox.Ok)
             return
-
-        QMessageBox.information(self,
-            'Dane logowania', 'Podano: ' + login + ' ' + password, QMessageBox.Ok)
 
         tasks = database.readData(self.profile)
         model.update(tasks)
@@ -179,8 +171,8 @@ class MainWidget(QWidget, Ui_Widget):
         self.zapiszBtn.setEnabled(True)
 
     def refresh_view(self):
-        self.view.setModel(model)  # przekazanie modelu do widoku
-        self.view.hideColumn(0)  # ukrywamy kolumnę id
+        self.view.setModel(model)  # send data to view
+        self.view.hideColumn(0)  # hide id column
         # ograniczenie szerokości ostatniej kolumny
         self.view.horizontalHeader().setStretchLastSection(True)
         # dopasowanie szerokości kolumn do zawartości

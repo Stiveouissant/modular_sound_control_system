@@ -4,7 +4,7 @@ from peewee import *
 from datetime import datetime
 
 base = SqliteDatabase('profiles.db')
-fields = ['Id', 'Description', 'Added', 'Done', 'Delete']
+fields = ['Id', 'Description', 'Function', 'Trigger', "Active", 'Delete']
 
 
 class DataModel(Model):
@@ -15,16 +15,17 @@ class DataModel(Model):
 
 class Profile(DataModel):
     login = CharField(null=False, unique=True)
-    password = CharField()
 
     class Meta:
         order_by = ('login',)
 
 
 class RecognitionTask(DataModel):
-    desc = TextField(null=True)
-    # task = IntegerField(null=False)
-    # fileAddress = TextField(null=True)
+    desc = TextField(null=False)
+    func = TextField(null=False, default="Open File")
+    trigger = TextField(null=False, default="Open File")
+    triggerType = IntegerField(null=False, default=0)
+    bonusData = TextField(null=True, default="clap.mp3")
     dateAdded = DateTimeField(default=datetime.now)
     active = BooleanField(default=False)
     profile = ForeignKeyField(Profile, related_name='profiles')
@@ -40,9 +41,9 @@ def connect():
     return True
 
 
-def logon(login, password):
+def logon(login):
     try:
-        profile, created = Profile.get_or_create(login=login, password=password)
+        profile, created = Profile.get_or_create(login=login)
         return profile
     except IntegrityError:
         return None
@@ -52,14 +53,14 @@ def loadData():
     """ Prepares default profile and tasks if there are none """
     if Profile.select().count() > 0:
         return
-    profiles = ('profile1', 'profile2')
-    tasks = ('Default recognition task 1', 'Default recognition task 2')
-    for login in profiles:
-        o = Profile(login=login, password='123')
-        o.save()
-        for describer in tasks:
-            z = RecognitionTask(desc=describer, profile=o)
-            z.save()
+    tasks = (('Default recognition task 1', 'Open File', 'Open File', 0, 'clap.mp3'),
+             ('Default recognition task 2', 'Open File', 'Clap', 1, 'clap.mp3'),
+             ('Default recognition task 3', 'Open File', 'A', 2, 'clap.mp3'))
+    o = Profile(login='profile1')
+    o.save()
+    for task in tasks:
+        z = RecognitionTask(desc=task[0], func=task[1], trigger=task[2], triggerType=task[3], bonusData=task[4], profile=o)
+        z.save()
     base.commit()
     base.close()
 
@@ -72,7 +73,8 @@ def readData(profile):
         tasks.append([
             z.id,
             z.desc,
-            '{0:%Y-%m-%d %H:%M:%S}'.format(z.dateAdded),
+            z.func,
+            z.trigger,
             z.active,
             False])
     return tasks
@@ -93,12 +95,12 @@ def addTask(profile, description):
 def saveData(tasks):
     """ Saves changes """
     for i, z in enumerate(tasks):
-        # utworzenie instancji tasks
+        # creates tasks instance
         task = RecognitionTask.select().where(RecognitionTask.id == z[0]).get()
-        if z[4]:  # if tasks is selected for deletion
+        if z[5]:  # if tasks is selected for deletion
             task.delete_instance()  # delete from database
             del tasks[i]  # delete from data model
         else:
             task.desc = z[1]
-            task.active = z[3]
+            task.active = z[4]
             task.save()

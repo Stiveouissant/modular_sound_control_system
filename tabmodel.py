@@ -34,7 +34,7 @@ class TabModel(QAbstractTableModel):
 
         if role == Qt.DisplayRole:
             return '{0}'.format(self.table[i][j])
-        elif role == Qt.CheckStateRole and (j == 3 or j == 4):
+        elif role == Qt.CheckStateRole and (j == 4 or j == 5):
             if self.table[i][j]:
                 return Qt.Checked
             else:
@@ -50,7 +50,7 @@ class TabModel(QAbstractTableModel):
         j = index.column()
         if j == 1:
             flags |= Qt.ItemIsEditable
-        elif j == 3 or j == 4:
+        elif j == 4 or j == 5:
             flags |= Qt.ItemIsUserCheckable
 
         return flags
@@ -61,7 +61,7 @@ class TabModel(QAbstractTableModel):
         j = index.column()
         if role == Qt.EditRole and j == 1:
             self.table[i][j] = value
-        elif role == Qt.CheckStateRole and (j == 3 or j == 4):
+        elif role == Qt.CheckStateRole and (j == 4 or j == 5):
             if value:
                 self.table[i][j] = True
             else:
