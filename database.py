@@ -25,7 +25,7 @@ class RecognitionTask(DataModel):
     func = TextField(null=False, default="Open File")
     trigger = TextField(null=False, default="Open File")
     triggerType = IntegerField(null=False, default=0)
-    bonusData = TextField(null=True, default="clap.mp3")
+    bonusData = TextField(null=True, default="")
     dateAdded = DateTimeField(default=datetime.now)
     active = BooleanField(default=False)
     profile = ForeignKeyField(Profile, related_name='profiles')
@@ -65,7 +65,16 @@ def loadData():
     base.close()
 
 
-def readData(profile):
+def read_profiles():
+    """ Reads all existing profiles """
+    profiles = []
+    records = Profile.select()
+    for z in records:
+        profiles.append(z.login)
+    return profiles
+
+
+def read_tasks(profile):
     """ Reads tasks of the given profile """
     tasks = []
     records = RecognitionTask.select().where(RecognitionTask.profile == profile)
@@ -80,14 +89,15 @@ def readData(profile):
     return tasks
 
 
-def addTask(profile, description):
+def add_task(desc, func, trigger, trigger_type, data, profile):
     """ Adds new task """
-    task = RecognitionTask(desc=description, profile=profile)
+    task = RecognitionTask(desc=desc, func=func, trigger=trigger, triggerType=trigger_type, bonusData=data, profile=profile)
     task.save()
     return [
         task.id,
         task.desc,
-        '{0:%Y-%m-%d %H:%M:%S}'.format(task.dateAdded),
+        task.func,
+        task.trigger,
         task.active,
         False]
 

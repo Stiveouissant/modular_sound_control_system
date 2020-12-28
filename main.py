@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QLineEdit, QPushButton, QHBoxLayout
 from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtCore import Qt
 
-from gui import Ui_Widget, ProfileDialog
+from gui import UIMainWidget, ProfileDialog, AddTaskDialog
 import database
 from tabmodel import TabModel
 
@@ -108,7 +108,7 @@ class MainWindow(QMainWindow):
         self.close()
 
 
-class MainWidget(QWidget, Ui_Widget):
+class MainWidget(QWidget, UIMainWidget):
     """Widget that handles the main application"""
     # default recognition mode
     recognition_mode = 'Speech'
@@ -117,43 +117,55 @@ class MainWidget(QWidget, Ui_Widget):
         super(MainWidget, self).__init__(parent)
         self.setup_ui(self)
 
-        self.logujBtn.clicked.connect(self.logon)
-        self.dodajBtn.clicked.connect(self.add)
-        self.zapiszBtn.clicked.connect(self.save)
+        self.select_profile_button.clicked.connect(self.select_profile)
+        self.add_task_button.clicked.connect(self.add_task)
+        self.save_changes_button.clicked.connect(self.save_changes)
 
         # przyciski PushButton ###
         for btn in self.button_group.buttons():
             btn.clicked.connect(self.mode_change)
+        self.set_active_button_style()
 
     def mode_change(self):
         which_button = self.sender()
+        self.recognition_mode = which_button.text()
+        self.set_active_button_style()
+
+    def set_active_button_style(self):
         for btn in self.button_group.buttons():
-            if which_button.text() == btn.text():
+            if self.recognition_mode == btn.text():
                 btn.setStyleSheet("background-color: lightgreen;")
             else:
                 btn.setStyleSheet("background-color: white")
-        recognition_mode = which_button.text()
-        print(recognition_mode)
 
-    def save(self):
+    def save_changes(self):
+        """ Saves changes in description, activation and if the task was selected for deletion - deletes it"""
         database.saveData(model.table)
         model.layoutChanged.emit()
 
-    def add(self):
-        """ Adds new tasks """
-        task, ok = QInputDialog.getMultiLineText(self, 'Zadanie', 'Co jest do zrobienia?')
-        if not ok or not task.strip():
-            QMessageBox.critical(self, 'Błąd', 'Zadanie nie może być puste.', QMessageBox.Ok)
+    def add_task(self):
+        """ Adds new task """
+        desc, func, trigger, data, ok = AddTaskDialog.get_new_task()
+        if not ok:
+            return
+        elif not desc.strip():
+            QMessageBox.critical(self, 'Error', 'Description cannot be empty!', QMessageBox.Ok)
             return
 
-        task = database.addTask(self.profile, task)
+        if self.recognition_mode == 'Speech':
+            trigger_type = 0
+        elif self.recognition_mode == 'Sound':
+            trigger_type = 1
+        else:
+            trigger_type = 2
+        task = database.add_task(desc, func, trigger, trigger_type, data, self.profile)
         model.table.append(task)
         model.layoutChanged.emit()  # signal that there was a change
         if len(model.table) == 1:  # if this is a first task
             self.refresh_view()     # model needs to be send to view
 
-    def logon(self):
-        """ Setup profile """
+    def select_profile(self):
+        """ From the poll of existing profiles allows user to pick one """
         login, ok = ProfileDialog.getProfile(self)
         if not ok:
             return
@@ -163,21 +175,20 @@ class MainWidget(QWidget, Ui_Widget):
             QMessageBox.critical(self, 'Error', 'Could not find the profile!', QMessageBox.Ok)
             return
 
-        tasks = database.readData(self.profile)
+        tasks = database.read_tasks(self.profile)
         model.update(tasks)
         model.layoutChanged.emit()
+        self.info_panel.itemAt(0).widget().setText("Profile: " + login)
         self.refresh_view()
-        self.dodajBtn.setEnabled(True)
-        self.zapiszBtn.setEnabled(True)
+        self.add_task_button.setEnabled(True)
+        self.save_changes_button.setEnabled(True)
 
     def refresh_view(self):
         self.view.setModel(model)  # send data to view
         self.view.hideColumn(0)  # hide id column
-        # ograniczenie szerokości ostatniej kolumny
+        # stretch last column and resize on main window resize
         self.view.horizontalHeader().setStretchLastSection(True)
-        # dopasowanie szerokości kolumn do zawartości
         self.view.resizeColumnsToContents()
-
 
 
 # class Recorder(QWidget):
