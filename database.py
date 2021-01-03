@@ -75,7 +75,7 @@ def read_profiles():
 
 
 def read_tasks(profile):
-    """ Reads tasks of the given profile """
+    """ Reads all tasks of the given profile """
     tasks = []
     records = RecognitionTask.select().where(RecognitionTask.profile == profile)
     for z in records:

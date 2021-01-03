@@ -12,6 +12,9 @@ from gui import UIMainWidget, ProfileDialog, AddTaskDialog
 import database
 from tabmodel import TabModel
 
+import pyaudio
+import speech_recognition as sr
+
 
 class MainWindow(QMainWindow):
     """Main Window."""
@@ -117,6 +120,7 @@ class MainWidget(QWidget, UIMainWidget):
         super(MainWidget, self).__init__(parent)
         self.setup_ui(self)
 
+        self.activate_recognition_button.clicked[bool].connect(self.activate_recognition)
         self.select_profile_button.clicked.connect(self.select_profile)
         self.add_task_button.clicked.connect(self.add_task)
         self.save_changes_button.clicked.connect(self.save_changes)
@@ -125,6 +129,47 @@ class MainWidget(QWidget, UIMainWidget):
         for btn in self.button_group.buttons():
             btn.clicked.connect(self.mode_change)
         self.set_active_button_style()
+
+    def activate_recognition(self, val):
+        if val:
+            r = sr.Recognizer()
+            r.energy_threshold = 4000  # higher the value - louder the room
+            # r.pause_threshold = 0.4  # how many seconds of silence before processing audio
+            mic = sr.Microphone()
+            # mic = sr.Microphone(device_index=3)
+            for v in sr.Microphone.list_microphone_names():
+                print(v)
+
+            response = {
+                "success": True,
+                "error": None,
+                "transcription": None
+            }
+
+            # try recognizing the speech in the recording
+            # if a RequestError or UnknownValueError exception is caught,
+            #     update the response object accordingly
+            try:
+                response["transcription"] = r.listen_in_background(mic, self.callback)
+            except sr.RequestError:
+                # API was unreachable or unresponsive
+                response["success"] = False
+                response["error"] = "Missing component in Sphinx installation"
+            except sr.UnknownValueError:
+                # speech was unintelligible
+                response["error"] = "Unable to recognize speech"
+
+            return response
+        else:
+            print("lol")
+
+    def callback(self, recognizer, audio):  # this is called from the background thread
+        try:
+            print("You said " + recognizer.recognize_sphinx(audio))  # received audio data, now need to recognize it
+        except LookupError:
+            print("Oops! Didn't catch that")
+        except sr.UnknownValueError:
+            print("Oops! Didn't catch that")
 
     def mode_change(self):
         which_button = self.sender()
@@ -182,6 +227,7 @@ class MainWidget(QWidget, UIMainWidget):
         self.refresh_view()
         self.add_task_button.setEnabled(True)
         self.save_changes_button.setEnabled(True)
+        self.activate_recognition_button.setEnabled(True)
 
     def refresh_view(self):
         self.view.setModel(model)  # send data to view

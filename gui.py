@@ -31,11 +31,17 @@ class UIMainWidget(object):
         self.button_groupbox.setLayout(button_layout_box)
         self.button_groupbox.setObjectName('Push')
 
+        # info panel with profile and sound visuals
         self.info_panel = QHBoxLayout()
         self.label1 = QLabel("Profile: not selected", self)
         self.label2 = QLabel("Placeholder for sound visuals", self)
         self.info_panel.addWidget(self.label1)
         self.info_panel.addWidget(self.label2)
+
+        # Activate button
+        self.activate_recognition_button = QPushButton("Activate recognition")
+        self.activate_recognition_button.setCheckable(True)
+        self.activate_recognition_button.setDisabled(True)
 
         # table for data-model-view
         self.view = QTableView()
@@ -48,17 +54,18 @@ class UIMainWidget(object):
         self.save_changes_button.setEnabled(False)
 
         # lower buttons layout ###
-        layout = QHBoxLayout()
-        layout.addWidget(self.select_profile_button)
-        layout.addWidget(self.add_task_button)
-        layout.addWidget(self.save_changes_button)
+        lower_buttons_layout = QHBoxLayout()
+        lower_buttons_layout.addWidget(self.select_profile_button)
+        lower_buttons_layout.addWidget(self.add_task_button)
+        lower_buttons_layout.addWidget(self.save_changes_button)
 
         # vertical layout for all elements ###
         layoutV = QVBoxLayout(self)
         layoutV.addWidget(self.button_groupbox)
         layoutV.addLayout(self.info_panel)
+        layoutV.addWidget(self.activate_recognition_button)
         layoutV.addWidget(self.view)
-        layoutV.addLayout(layout)
+        layoutV.addLayout(lower_buttons_layout)
 
 
 class ProfileDialog(QDialog):
