@@ -122,7 +122,7 @@ class ProfileTabModel(QAbstractTableModel):
 
     def flags(self, index):
         """ Returns properties of the column """
-        flags = super(TabModel, self).flags(index)
+        flags = super(ProfileTabModel, self).flags(index)
         j = index.column()
         if j == 1:
             flags |= Qt.ItemIsEditable

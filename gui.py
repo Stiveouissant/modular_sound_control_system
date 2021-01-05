@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtWidgets import QTableView, QPushButton, QMenuBar, QMainWindow, QWidget, QButtonGroup, QGroupBox, \
-    QRadioButton, QComboBox, QInputDialog
+from PyQt5.QtWidgets import QTableView, QPushButton, QButtonGroup, QGroupBox, QRadioButton, QComboBox, QInputDialog
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout
-from PyQt5.QtWidgets import QMenu
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox
 from PyQt5.QtWidgets import QLabel, QLineEdit
-from PyQt5.QtWidgets import QGridLayout, QMessageBox
+from PyQt5.QtWidgets import QMessageBox
 
 import database
 import stylesheets
@@ -178,6 +176,7 @@ class AddTaskDialog(QDialog):
 
 class ManageProfilesDialog(QDialog):
     """ Manage Profiles window """
+    # view = QTableView()
 
     def __init__(self, parent=None):
         super(ManageProfilesDialog, self).__init__(parent)
@@ -189,6 +188,7 @@ class ManageProfilesDialog(QDialog):
         self.model.layoutChanged.emit()
 
         self.view = QTableView()
+        self.refresh_view()
 
         horizontal_layout_buttons = QHBoxLayout()
         self.create_profile_button = QPushButton("Create Profile")

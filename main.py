@@ -70,6 +70,9 @@ class MainWindow(QMainWindow):
 
     def manage_profiles(self):
         ManageProfilesDialog.manage_profiles()
+        self.main_widget.activate_recognition_button.setDisabled(True)
+        self.main_widget.add_task_button.setDisabled(True)
+        self.main_widget.save_changes_button.setDisabled(True)
 
     def import_profile(self):
         print("Extract Profile")
@@ -132,8 +135,6 @@ class MainWidget(QWidget, UIMainWidget):
         self.r.energy_threshold = 6000  # higher the value - louder the room
         # r.pause_threshold = 0.4  # how many seconds of silence before processing audio
 
-        self.startup = True  # defines whether or not the user has already chosen profile
-
     def activate_recognition(self, val):
         if val:
             self.activate_recognition_button.setStyleSheet("background-color:lightblue;")
@@ -155,7 +156,7 @@ class MainWidget(QWidget, UIMainWidget):
         try:
             print("You said: " + recognizer.recognize_sphinx(audio))  # received audio data, now need to recognize it
         except sr.RequestError:
-            print("There was a problem with Voice Recognizer software!")
+            print("There was a problem with Voice Recognizer!")
         except sr.UnknownValueError:
             print("Oops! Didn't catch that")
 
@@ -216,11 +217,9 @@ class MainWidget(QWidget, UIMainWidget):
         self.info_panel.itemAt(0).widget().setText("Profile: " + login)
         self.refresh_view()
 
-        if self.startup:
-            self.add_task_button.setEnabled(True)
-            self.save_changes_button.setEnabled(True)
-            self.activate_recognition_button.setEnabled(True)
-            self.startup = False
+        self.add_task_button.setEnabled(True)
+        self.save_changes_button.setEnabled(True)
+        self.activate_recognition_button.setEnabled(True)
 
     def refresh_view(self):
         self.view.setModel(model)  # send data to view

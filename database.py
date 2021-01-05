@@ -22,9 +22,9 @@ class Profile(DataModel):
 
 class RecognitionTask(DataModel):
     desc = TextField(null=False)
-    func = TextField(null=False, default="Open File")
-    trigger = TextField(null=False, default="Open File")
-    triggerType = IntegerField(null=False, default=0)
+    func = TextField(null=False)
+    trigger = TextField(null=False)
+    triggerType = IntegerField(null=False)
     bonusData = TextField(null=True, default="")
     dateAdded = DateTimeField(default=datetime.now)
     active = BooleanField(default=False)
@@ -75,7 +75,7 @@ def read_profiles():
 
 
 def read_profiles_full():
-    """ Reads all existing profiles with id's and ads deletion field """
+    """ Reads all existing profiles with id's and adds deletion field """
     profiles = []
     records = Profile.select()
     for z in records:
@@ -127,11 +127,19 @@ def save_profiles(profiles):
         # creates profile instance
         profile = Profile.select().where(Profile.id == z[0]).get()
         if z[2]:  # if tasks is selected for deletion
+            delete_profile_tasks(profile)  # deletes all tasks belonging to a profile
             profile.delete_instance()  # delete from database
             del profiles[i]  # delete from data model
         else:
-            profile.desc = z[1]
+            profile.login = z[1]
             profile.save()
+
+
+def delete_profile_tasks(profile):
+    """ Deletes all tasks belonging to given profile """
+    records = RecognitionTask.select().where(RecognitionTask.profile == profile)
+    for v in records:
+        v.delete_instance()
 
 
 def saveData(tasks):
