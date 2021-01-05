@@ -1,19 +1,14 @@
-# import sounddevice
-# from scipy.io.wavfile import write
-from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QMenuBar, QMenu, QAction, QStatusBar, \
-    QInputDialog
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QLabel, QGridLayout
-from PyQt5.QtWidgets import QLineEdit, QPushButton, QHBoxLayout
-from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QMenu, QAction, QStatusBar, QMessageBox
 from PyQt5.QtCore import Qt
 
-from gui import UIMainWidget, ProfileDialog, AddTaskDialog
+from gui import UIMainWidget, ProfileDialog, AddTaskDialog, ManageProfilesDialog
 import database
 from tabmodel import TabModel
 
 import pyaudio
 import speech_recognition as sr
+
+import stylesheets
 
 
 class MainWindow(QMainWindow):
@@ -55,8 +50,8 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.statusbar)
 
     def _createActions(self):
-        self.change_profile_action = QAction("&Change Profile", self)
-        self.extract_profile_action = QAction("&Extract Profile", self)
+        self.change_profile_action = QAction("&Manage Profiles", self)
+        self.extract_profile_action = QAction("&Import Profile", self)
         self.exit_action = QAction("&Exit", self)
         self.settings_action = QAction("&Settings", self)
         self.help_content_action = QAction("&Help Content", self)
@@ -64,8 +59,8 @@ class MainWindow(QMainWindow):
 
     def _connectActions(self):
         # Connect File actions
-        self.change_profile_action.triggered.connect(self.change_profile)
-        self.extract_profile_action.triggered.connect(self.extract_profile)
+        self.change_profile_action.triggered.connect(self.manage_profiles)
+        self.extract_profile_action.triggered.connect(self.import_profile)
         self.exit_action.triggered.connect(self.exit_action_triggered)
         # Connect Settings actions
         self.settings_action.triggered.connect(self.settings)
@@ -73,10 +68,10 @@ class MainWindow(QMainWindow):
         self.help_content_action.triggered.connect(self.help_content)
         self.about_action.triggered.connect(self.about)
 
-    def change_profile(self):
-        print("Change Profile")
+    def manage_profiles(self):
+        ManageProfilesDialog.manage_profiles()
 
-    def extract_profile(self):
+    def import_profile(self):
         print("Extract Profile")
 
     def exit_action_triggered(self):
@@ -93,12 +88,12 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
 
-        odp = QMessageBox.question(
-            self, 'Info',
+        answer = QMessageBox.question(
+            self, 'Closing program',
             "Are you sure you want to exit?",
             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
 
-        if odp == QMessageBox.Yes:
+        if answer == QMessageBox.Yes:
             event.accept()
         else:
             event.ignore()
@@ -115,6 +110,8 @@ class MainWidget(QWidget, UIMainWidget):
     """Widget that handles the main application"""
     # default recognition mode
     recognition_mode = 'Speech'
+    # default microphone
+    mic_input_index = -1
 
     def __init__(self, parent=None):
         super(MainWidget, self).__init__(parent)
@@ -125,54 +122,47 @@ class MainWidget(QWidget, UIMainWidget):
         self.add_task_button.clicked.connect(self.add_task)
         self.save_changes_button.clicked.connect(self.save_changes)
 
-        # przyciski PushButton ###
+        # mode change PushButtons ###
         for btn in self.button_group.buttons():
             btn.clicked.connect(self.mode_change)
         self.set_active_button_style()
 
+        self.stop = None  # variable for storing stop function for background listening
+        self.r = sr.Recognizer()  # recognizer used throughout the application
+        self.r.energy_threshold = 6000  # higher the value - louder the room
+        # r.pause_threshold = 0.4  # how many seconds of silence before processing audio
+
+        self.startup = True  # defines whether or not the user has already chosen profile
+
     def activate_recognition(self, val):
         if val:
-            r = sr.Recognizer()
-            r.energy_threshold = 4000  # higher the value - louder the room
-            # r.pause_threshold = 0.4  # how many seconds of silence before processing audio
-            mic = sr.Microphone()
-            # mic = sr.Microphone(device_index=3)
+            self.activate_recognition_button.setStyleSheet("background-color:lightblue;")
+            if self.mic_input_index == -1:
+                mic = sr.Microphone()
+            else:
+                mic = sr.Microphone(device_index=self.mic_input_index)
             for v in sr.Microphone.list_microphone_names():
                 print(v)
 
-            response = {
-                "success": True,
-                "error": None,
-                "transcription": None
-            }
-
-            # try recognizing the speech in the recording
-            # if a RequestError or UnknownValueError exception is caught,
-            #     update the response object accordingly
-            try:
-                response["transcription"] = r.listen_in_background(mic, self.callback)
-            except sr.RequestError:
-                # API was unreachable or unresponsive
-                response["success"] = False
-                response["error"] = "Missing component in Sphinx installation"
-            except sr.UnknownValueError:
-                # speech was unintelligible
-                response["error"] = "Unable to recognize speech"
-
-            return response
+            # try recognizing the speech from the mic
+            self.stop = self.r.listen_in_background(mic, self.speech_callback)
         else:
-            print("lol")
+            self.stop(wait_for_stop=False)
+            self.activate_recognition_button.setChecked(False)
+            self.activate_recognition_button.setStyleSheet("background-color:lightgrey;")
 
-    def callback(self, recognizer, audio):  # this is called from the background thread
+    def speech_callback(self, recognizer, audio):  # this is called from the background thread
         try:
-            print("You said " + recognizer.recognize_sphinx(audio))  # received audio data, now need to recognize it
-        except LookupError:
-            print("Oops! Didn't catch that")
+            print("You said: " + recognizer.recognize_sphinx(audio))  # received audio data, now need to recognize it
+        except sr.RequestError:
+            print("There was a problem with Voice Recognizer software!")
         except sr.UnknownValueError:
             print("Oops! Didn't catch that")
 
     def mode_change(self):
         which_button = self.sender()
+        if self.stop is not None:
+            self.activate_recognition(False)
         self.recognition_mode = which_button.text()
         self.set_active_button_style()
 
@@ -225,9 +215,12 @@ class MainWidget(QWidget, UIMainWidget):
         model.layoutChanged.emit()
         self.info_panel.itemAt(0).widget().setText("Profile: " + login)
         self.refresh_view()
-        self.add_task_button.setEnabled(True)
-        self.save_changes_button.setEnabled(True)
-        self.activate_recognition_button.setEnabled(True)
+
+        if self.startup:
+            self.add_task_button.setEnabled(True)
+            self.save_changes_button.setEnabled(True)
+            self.activate_recognition_button.setEnabled(True)
+            self.startup = False
 
     def refresh_view(self):
         self.view.setModel(model)  # send data to view
@@ -235,75 +228,6 @@ class MainWidget(QWidget, UIMainWidget):
         # stretch last column and resize on main window resize
         self.view.horizontalHeader().setStretchLastSection(True)
         self.view.resizeColumnsToContents()
-
-
-# class Recorder(QWidget):
-#
-#     def __init__(self, parent=None):
-#         super().__init__(parent)
-#
-#         self.interfejs()
-#
-#     def interfejs(self):
-#
-#         # etykiety
-#         etykieta1 = QLabel("Naciśnij przycisk, aby rozpocząć nagrywanie:", self)
-#
-#
-#         # przypisanie widgetów do układu tabelarycznego
-#         ukladT = QGridLayout()
-#         ukladT.addWidget(etykieta1, 0, 0)
-#
-#         # przyciski
-#         koniecBtn = QPushButton("&Koniec", self)
-#         recordBtn = QPushButton("&Nagraj", self)
-#         koniecBtn.resize(koniecBtn.sizeHint())
-#
-#         ukladH = QHBoxLayout()
-#         ukladH.addWidget(recordBtn)
-#
-#         ukladT.addLayout(ukladH, 2, 0, 1, 3)
-#         ukladT.addWidget(koniecBtn, 3, 0, 1, 3)
-#
-#         # przypisanie utworzonego układu do okna
-#         self.setLayout(ukladT)
-#
-#         koniecBtn.clicked.connect(self.koniec)
-#         recordBtn.clicked.connect(self.voice_recording)
-#
-#
-#         # self.liczba1Edt.setFocus()
-#         self.setGeometry(20, 20, 300, 100)
-#         # self.setWindowIcon(QIcon('icon.png'))
-#         self.setWindowTitle("Voice recording")
-#         self.show()
-#
-#     def voice_recording(self):
-#         fs = 44100
-#         second = 3
-#         print("recording......")
-#         record_voice = sounddevice.rec(int(second * fs), samplerate=fs, channels=1)
-#         sounddevice.wait()
-#         write("output.wav", fs, record_voice)
-#
-#     def koniec(self):
-#         self.close()
-#
-#     def closeEvent(self, event):
-#
-#         odp = QMessageBox.question(
-#             self, 'Info',
-#             "Are you sure you want to exit?",
-#             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-#
-#         if odp == QMessageBox.Yes:
-#             event.accept()
-#         else:
-#             event.ignore()
-#
-#     def keyPressEvent(self, e):
-#         if e.key() == Qt.Key_Escape:
-#             self.close()
 
 
 if __name__ == '__main__':

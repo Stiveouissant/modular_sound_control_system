@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from PyQt5.QtWidgets import QTableView, QPushButton, QMenuBar, QMainWindow, QWidget, QButtonGroup, QGroupBox, \
-    QRadioButton, QComboBox
+    QRadioButton, QComboBox, QInputDialog
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout
 from PyQt5.QtWidgets import QMenu
 from PyQt5.QtCore import Qt
@@ -10,6 +10,8 @@ from PyQt5.QtWidgets import QLabel, QLineEdit
 from PyQt5.QtWidgets import QGridLayout, QMessageBox
 
 import database
+import stylesheets
+from tabmodel import ProfileTabModel
 
 
 class UIMainWidget(object):
@@ -40,6 +42,7 @@ class UIMainWidget(object):
 
         # Activate button
         self.activate_recognition_button = QPushButton("Activate recognition")
+        self.activate_recognition_button.setStyleSheet("background-color:lightgrey;")
         self.activate_recognition_button.setCheckable(True)
         self.activate_recognition_button.setDisabled(True)
 
@@ -114,7 +117,7 @@ class ProfileDialog(QDialog):
 class AddTaskDialog(QDialog):
     """ Add new task window """
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, mode="Speech"):
         super(AddTaskDialog, self).__init__(parent)
 
         # labels
@@ -140,17 +143,6 @@ class AddTaskDialog(QDialog):
             Qt.Horizontal, self)
 
         # main layout ###
-        # grid_layout = QGridLayout()
-        # grid_layout.addWidget(desc_label, 0, 0)
-        # grid_layout.addWidget(self.desc_line, 0, 1)
-        # grid_layout.addWidget(func_label, 1, 0)
-        # grid_layout.addWidget(self.function_list, 1, 1)
-        # grid_layout.addWidget(trigger_label, 2, 0)
-        # grid_layout.addWidget(self.trigger_list, 2, 1)
-        # grid_layout.addWidget(bonus_label, 3, 0)
-        # grid_layout.addWidget(self.bonus_data, 3, 1)
-        # grid_layout.addWidget(self.lower_buttons, 4, 0)
-
         vertical_layout = QVBoxLayout(self)
         vertical_layout.addWidget(desc_label)
         vertical_layout.addWidget(self.desc_line)
@@ -182,3 +174,73 @@ class AddTaskDialog(QDialog):
         ok = dialog.exec_()
         desc, func, trigger, data = dialog.get_data()
         return desc, func, trigger, data, ok == QDialog.Accepted
+
+
+class ManageProfilesDialog(QDialog):
+    """ Manage Profiles window """
+
+    def __init__(self, parent=None):
+        super(ManageProfilesDialog, self).__init__(parent)
+
+        profiles = database.read_profiles_full()
+        fields = ['Id', 'Profile name', 'Delete']
+        self.model = ProfileTabModel(fields)
+        self.model.update(profiles)
+        self.model.layoutChanged.emit()
+
+        self.view = QTableView()
+
+        horizontal_layout_buttons = QHBoxLayout()
+        self.create_profile_button = QPushButton("Create Profile")
+        self.save_button = QPushButton("Save changes")
+        self.close_button = QPushButton("Close")
+        horizontal_layout_buttons.addWidget(self.create_profile_button)
+        horizontal_layout_buttons.addWidget(self.save_button)
+        horizontal_layout_buttons.addWidget(self.close_button)
+
+        # button connects ###
+        self.create_profile_button.clicked.connect(self.create_new_profile)
+        self.save_button.clicked.connect(self.save_changes)
+        self.close_button.clicked.connect(self.close_dialog)
+
+        # main layout ###
+        vertical_layout = QVBoxLayout(self)
+        vertical_layout.addWidget(self.view)
+        vertical_layout.addLayout(horizontal_layout_buttons)
+
+        # properties ###
+        self.setModal(True)
+        self.setWindowTitle('Manage profiles')
+
+    def create_new_profile(self):
+        profilename, ok = QInputDialog.getText(self, 'Creating profile', 'Type in a name for the profile')
+        if not ok:
+            return
+        elif not profilename.strip():
+            QMessageBox.critical(self, 'Error', 'Profile name cannot be empty!', QMessageBox.Ok)
+            return
+        else:
+            profile = database.add_profile(profilename)
+            self.model.table.append(profile)
+            self.model.layoutChanged.emit()
+            if len(self.model.table) == 1:
+                self.refresh_view()
+
+    def save_changes(self):
+        database.save_profiles(self.model.table)
+        self.model.layoutChanged.emit()
+
+    def close_dialog(self):
+        self.close()
+
+    def refresh_view(self):
+        self.view.setModel(self.model)
+        self.view.hideColumn(0)
+        self.view.horizontalHeader().setStretchLastSection(True)
+        self.view.resizeColumnsToContents()
+
+    @staticmethod
+    def manage_profiles(parent=None):
+        dialog = ManageProfilesDialog(parent)
+        dialog.exec_()
+        return

@@ -66,11 +66,20 @@ def loadData():
 
 
 def read_profiles():
-    """ Reads all existing profiles """
+    """ Reads all existing profiles names """
     profiles = []
     records = Profile.select()
     for z in records:
         profiles.append(z.login)
+    return profiles
+
+
+def read_profiles_full():
+    """ Reads all existing profiles with id's and ads deletion field """
+    profiles = []
+    records = Profile.select()
+    for z in records:
+        profiles.append([z.id, z.login, False])
     return profiles
 
 
@@ -89,6 +98,16 @@ def read_tasks(profile):
     return tasks
 
 
+def add_profile(login):
+    """ Adds new profile """
+    profile = Profile(login=login)
+    profile.save()
+    return [
+        profile.id,
+        profile.login,
+        False]
+
+
 def add_task(desc, func, trigger, trigger_type, data, profile):
     """ Adds new task """
     task = RecognitionTask(desc=desc, func=func, trigger=trigger, triggerType=trigger_type, bonusData=data, profile=profile)
@@ -102,8 +121,21 @@ def add_task(desc, func, trigger, trigger_type, data, profile):
         False]
 
 
+def save_profiles(profiles):
+    """ Saves changes in manage profiles window """
+    for i, z in enumerate(profiles):
+        # creates profile instance
+        profile = Profile.select().where(Profile.id == z[0]).get()
+        if z[2]:  # if tasks is selected for deletion
+            profile.delete_instance()  # delete from database
+            del profiles[i]  # delete from data model
+        else:
+            profile.desc = z[1]
+            profile.save()
+
+
 def saveData(tasks):
-    """ Saves changes """
+    """ Saves changes in tasks """
     for i, z in enumerate(tasks):
         # creates tasks instance
         task = RecognitionTask.select().where(RecognitionTask.id == z[0]).get()
