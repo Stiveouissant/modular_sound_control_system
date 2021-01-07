@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QMenu, QAction, QStatusBar, QMessageBox
 from PyQt5.QtCore import Qt
 
-from gui import UIMainWidget, ProfileDialog, AddTaskDialog, ManageProfilesDialog
+from gui import UIMainWidget, ProfileDialog, AddTaskDialog, ManageProfilesDialog, SettingsDialog
 import database
 from tabmodel import TabModel
 
@@ -9,6 +9,10 @@ import pyaudio
 import speech_recognition as sr
 
 import stylesheets
+
+import scipy.io.wavfile
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 class MainWindow(QMainWindow):
@@ -81,7 +85,7 @@ class MainWindow(QMainWindow):
         self.close()
 
     def settings(self):
-        print("Settings")
+        self.main_widget.open_settings_menu()
 
     def help_content(self):
         print("Help Content")
@@ -130,10 +134,61 @@ class MainWidget(QWidget, UIMainWidget):
             btn.clicked.connect(self.mode_change)
         self.set_active_button_style()
 
+        self.p = pyaudio.PyAudio()  # Mic input for visualising audio and pitch recognition
+        self.chunk = 4096  # gets replaced automatically
+        self.updatesPerSecond = 10
+        self.chunksRead = 0
+
         self.stop = None  # variable for storing stop function for background listening
-        self.r = sr.Recognizer()  # recognizer used throughout the application
+        self.r = sr.Recognizer()  # recognizer for speech to text
         self.r.energy_threshold = 6000  # higher the value - louder the room
         # r.pause_threshold = 0.4  # how many seconds of silence before processing audio
+
+    def open_settings_menu(self):
+        """ Opens settings menu """
+        mics = self.valid_input_devices()
+        microphone_index, ok = SettingsDialog.get_settings(mic_list=mics)
+        if not ok:
+            return
+        self.mic_input_index = microphone_index
+        if self.stop is not None:
+            self.activate_recognition(False)
+
+    # MICROPHONE SETUP ###
+
+    def valid_low_rate(self, device):
+        """set the rate to the lowest supported audio rate."""
+        for testrate in [44100]:
+            if self.valid_test(device, testrate):
+                return testrate
+        print("SOMETHING'S WRONG! I can't figure out how to use DEV", device)
+        return None
+
+    def valid_test(self, device):
+        """ Given a device ID and a rate, return TRUE/False if it's valid. """
+        try:
+            self.mic_info = self.p.get_device_info_by_index(device)
+            if self.mic_info["maxInputChannels"] < 1 or self.mic_info["hostApi"] != 0:
+                return False
+            stream = self.p.open(format=pyaudio.paInt16, channels=1,
+                                 input_device_index=device, frames_per_buffer=self.chunk,
+                                 rate=int(self.mic_info["defaultSampleRate"]), input=True)
+            stream.close()
+            return True
+        except Exception:
+            return False
+
+    def valid_input_devices(self):
+        """ See which devices can be opened for microphone input. """
+        mics = []
+        for device in range(self.p.get_device_count()):
+            if self.valid_test(device):
+                mics.append({'name': self.mic_info.get('name'), 'index': self.mic_info.get('index')})
+        if len(mics) == 0:
+            print("no microphone devices found!")
+        return mics
+
+    # END OF MICROPHONE SETUP ###
 
     def activate_recognition(self, val):
         if val:
@@ -232,6 +287,7 @@ class MainWidget(QWidget, UIMainWidget):
 if __name__ == '__main__':
     import sys
     app = QApplication(sys.argv)
+    app.setAttribute(Qt.AA_DisableWindowContextHelpButton)
     database.connect()
     model = TabModel(database.fields)
     window = MainWindow()

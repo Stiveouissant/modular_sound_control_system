@@ -244,3 +244,46 @@ class ManageProfilesDialog(QDialog):
         dialog = ManageProfilesDialog(parent)
         dialog.exec_()
         return
+
+
+class SettingsDialog(QDialog):
+    """ Settings window """
+
+    def __init__(self, parent=None, mic_list=[]):
+        super(SettingsDialog, self).__init__(parent)
+
+        mic_label = QLabel("Recording devices:", self)
+
+        # Microphone change combo box ###
+        self.devices_list = QComboBox(self)
+        self.devices_list.addItem('Default', -1)
+        for v in mic_list:
+            self.devices_list.addItem(v.get('name'), v.get('index'))
+
+        self.lower_buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+
+        # main layout ###
+        vertical_layout = QVBoxLayout(self)
+        vertical_layout.addWidget(mic_label)
+        vertical_layout.addWidget(self.devices_list)
+        vertical_layout.addWidget(self.lower_buttons)
+
+        # button connects ###
+        self.lower_buttons.accepted.connect(self.accept)
+        self.lower_buttons.rejected.connect(self.reject)
+
+        # properties ###
+        self.setModal(True)  # can't leave the window before closing
+        self.setWindowTitle('Settings')
+
+    def get_data(self):
+        return self.devices_list.currentData()
+
+    # creates dialog returns profile name and accept from dialog
+    @staticmethod
+    def get_settings(parent=None, mic_list=[]):
+        dialog = SettingsDialog(parent, mic_list)
+        ok = dialog.exec_()
+        return dialog.get_data(), ok == QDialog.Accepted
