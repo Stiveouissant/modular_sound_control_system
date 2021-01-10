@@ -6,6 +6,8 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox
 from PyQt5.QtWidgets import QLabel, QLineEdit
 from PyQt5.QtWidgets import QMessageBox
+from pyqtgraph import PlotWidget
+import pyqtgraph
 
 import database
 import stylesheets
@@ -34,9 +36,11 @@ class UIMainWidget(object):
         # info panel with profile and sound visuals
         self.info_panel = QHBoxLayout()
         self.label1 = QLabel("Profile: not selected", self)
-        self.label2 = QLabel("Placeholder for sound visuals", self)
+        pyqtgraph.setConfigOption('background', 'w')
+        self.sound_visual = PlotWidget()
+        self.sound_visual.plotItem.setRange(yRange=[-1000, 1000])
         self.info_panel.addWidget(self.label1)
-        self.info_panel.addWidget(self.label2)
+        self.info_panel.addWidget(self.sound_visual)
 
         # Activate button
         self.activate_recognition_button = QPushButton("Activate recognition")

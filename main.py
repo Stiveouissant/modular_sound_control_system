@@ -1,5 +1,8 @@
+import threading
+
+import pyqtgraph
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QMenu, QAction, QStatusBar, QMessageBox
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 
 from gui import UIMainWidget, ProfileDialog, AddTaskDialog, ManageProfilesDialog, SettingsDialog
 import database
@@ -109,9 +112,6 @@ class MainWindow(QMainWindow):
         if e.key() == Qt.Key_Escape:
             self.close()
 
-    def exit(self):
-        self.close()
-
 
 class MainWidget(QWidget, UIMainWidget):
     """Widget that handles the main application"""
@@ -134,15 +134,33 @@ class MainWidget(QWidget, UIMainWidget):
             btn.clicked.connect(self.mode_change)
         self.set_active_button_style()
 
+        np.set_printoptions(threshold=np.inf)
+
         self.p = pyaudio.PyAudio()  # Mic input for visualising audio and pitch recognition
-        self.chunk = 4096  # gets replaced automatically
-        self.updatesPerSecond = 10
-        self.chunksRead = 0
+        self.chunk = 2**11
+        self.stream = self.p.open(format=pyaudio.paInt16, channels=1,
+                                  rate=44000, input=True, frames_per_buffer=self.chunk)
+        self.dataix = np.arange(self.chunk / 44000)
+
+        self.initialize_graph()
+
+        # # close the stream gracefully
+        # self.stream.stop_stream()
+        # self.stream.close()
 
         self.stop = None  # variable for storing stop function for background listening
         self.r = sr.Recognizer()  # recognizer for speech to text
         self.r.energy_threshold = 6000  # higher the value - louder the room
         # r.pause_threshold = 0.4  # how many seconds of silence before processing audio
+
+    def initialize_graph(self):
+        self.graph_thread = threading.Thread(target=self.graph_refresh)
+        self.graph_thread.start()
+
+    def graph_refresh(self):
+        while True:
+            data = np.frombuffer(self.stream.read(self.chunk), dtype=np.int16)
+            self.sound_visual.plot(data, clear=True, pen=pyqtgraph.mkPen(color='b'))
 
     def open_settings_menu(self):
         """ Opens settings menu """
@@ -155,14 +173,6 @@ class MainWidget(QWidget, UIMainWidget):
             self.activate_recognition(False)
 
     # MICROPHONE SETUP ###
-
-    def valid_low_rate(self, device):
-        """set the rate to the lowest supported audio rate."""
-        for testrate in [44100]:
-            if self.valid_test(device, testrate):
-                return testrate
-        print("SOMETHING'S WRONG! I can't figure out how to use DEV", device)
-        return None
 
     def valid_test(self, device):
         """ Given a device ID and a rate, return TRUE/False if it's valid. """
@@ -197,8 +207,6 @@ class MainWidget(QWidget, UIMainWidget):
                 mic = sr.Microphone()
             else:
                 mic = sr.Microphone(device_index=self.mic_input_index)
-            for v in sr.Microphone.list_microphone_names():
-                print(v)
 
             # try recognizing the speech from the mic
             self.stop = self.r.listen_in_background(mic, self.speech_callback)
