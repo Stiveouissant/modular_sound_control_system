@@ -1,20 +1,16 @@
-import threading
-
-import pyqtgraph
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QMenu, QAction, QStatusBar, QMessageBox
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt, pyqtSignal, QThread
 
 from gui import UIMainWidget, ProfileDialog, AddTaskDialog, ManageProfilesDialog, SettingsDialog
 import database
 from tabmodel import TabModel
+from pitch import PitchRecognition
 
 import pyaudio
 import speech_recognition as sr
 
 import stylesheets
 
-import scipy.io.wavfile
-import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -37,7 +33,7 @@ class MainWindow(QMainWindow):
 
     def _createMenuBar(self):
         menu_bar = self.menuBar()
-        # Creating menus using a QMenu object
+        # Creating menu using a QMenu object
         file_menu = QMenu("&File", self)
         file_menu.addAction(self.change_profile_action)
         file_menu.addAction(self.extract_profile_action)
@@ -75,6 +71,9 @@ class MainWindow(QMainWindow):
         self.help_content_action.triggered.connect(self.help_content)
         self.about_action.triggered.connect(self.about)
 
+    def set_temporary_message(self, message):
+        self.statusbar.showMessage(message)
+
     def manage_profiles(self):
         ManageProfilesDialog.manage_profiles()
         self.main_widget.activate_recognition_button.setDisabled(True)
@@ -82,7 +81,7 @@ class MainWindow(QMainWindow):
         self.main_widget.save_changes_button.setDisabled(True)
 
     def import_profile(self):
-        print("Extract Profile")
+        print("Import Profile")
 
     def exit_action_triggered(self):
         self.close()
@@ -113,6 +112,27 @@ class MainWindow(QMainWindow):
             self.close()
 
 
+class GraphUpdateThread(QThread):
+    signal = pyqtSignal(object)
+
+    def __init__(self, parent=None):
+        super(GraphUpdateThread, self).__init__(parent=parent)
+        self.p = pyaudio.PyAudio()
+        self.chunk = 1024
+        self.stream = self.p.open(format=pyaudio.paInt16, channels=1,
+                                  rate=44000, input=True, frames_per_buffer=self.chunk)
+
+    def __del__(self):
+        self.exiting = True
+        self.wait()
+
+    def run(self):
+        while self.stream.is_active():
+            data = np.frombuffer(self.stream.read(self.chunk), dtype=np.int16)
+            data = [-2500 if x < -2500 else 2500 if x > 2500 else x for x in data]
+            self.signal.emit(data)
+
+
 class MainWidget(QWidget, UIMainWidget):
     """Widget that handles the main application"""
     # default recognition mode
@@ -137,11 +157,12 @@ class MainWidget(QWidget, UIMainWidget):
         np.set_printoptions(threshold=np.inf)
 
         self.p = pyaudio.PyAudio()  # Mic input for visualising audio and pitch recognition
-        self.chunk = 2**11
+        self.chunk = 1024
         self.stream = self.p.open(format=pyaudio.paInt16, channels=1,
                                   rate=44000, input=True, frames_per_buffer=self.chunk)
-        self.dataix = np.arange(self.chunk / 44000)
 
+        # Plot graph setup
+        self.graph_thread = GraphUpdateThread()
         self.initialize_graph()
 
         # # close the stream gracefully
@@ -153,14 +174,15 @@ class MainWidget(QWidget, UIMainWidget):
         self.r.energy_threshold = 6000  # higher the value - louder the room
         # r.pause_threshold = 0.4  # how many seconds of silence before processing audio
 
-    def initialize_graph(self):
-        self.graph_thread = threading.Thread(target=self.graph_refresh)
-        self.graph_thread.start()
+        # Pitch tracking setup
+        self.pitch_tracker = PitchRecognition()
 
-    def graph_refresh(self):
-        while True:
-            data = np.frombuffer(self.stream.read(self.chunk), dtype=np.int16)
-            self.sound_visual.plot(data, clear=True, pen=pyqtgraph.mkPen(color='b'))
+    def initialize_graph(self):
+        self.graph_thread.start()
+        self.graph_thread.signal.connect(self.graph_update)
+
+    def graph_update(self, data):
+        self.sound_visual.plot(np.arange(self.chunk), data, clear=True)
 
     def open_settings_menu(self):
         """ Opens settings menu """
@@ -200,33 +222,55 @@ class MainWidget(QWidget, UIMainWidget):
 
     # END OF MICROPHONE SETUP ###
 
-    def activate_recognition(self, val):
-        if val:
+    def activate_recognition(self, activate):
+        if activate:
             self.activate_recognition_button.setStyleSheet("background-color:lightblue;")
-            if self.mic_input_index == -1:
-                mic = sr.Microphone()
+            if self.recognition_mode == "Speech":
+                self.activate_speech_recognition()
+            elif self.recognition_mode == "Sound":
+                self.activate_sound_recognition()
             else:
-                mic = sr.Microphone(device_index=self.mic_input_index)
-
-            # try recognizing the speech from the mic
-            self.stop = self.r.listen_in_background(mic, self.speech_callback)
+                self.activate_pitch_recognition()
         else:
-            self.stop(wait_for_stop=False)
             self.activate_recognition_button.setChecked(False)
             self.activate_recognition_button.setStyleSheet("background-color:lightgrey;")
+            if self.recognition_mode == "Speech":
+                if self.stop is not None:
+                    self.stop(wait_for_stop=False)  # wait_for_stop=False
+            elif self.recognition_mode == "Sound":
+                self.activate_sound_recognition()
+            else:
+                self.pitch_tracker.stop_stream()
 
-    def speech_callback(self, recognizer, audio):  # this is called from the background thread
+    def activate_speech_recognition(self):
+        window.set_temporary_message("Speech recognition activated")
+        if self.mic_input_index == -1:
+            mic = sr.Microphone()
+        else:
+            mic = sr.Microphone(device_index=self.mic_input_index)
+        # try recognizing the speech from the mic
+        self.stop = self.r.listen_in_background(mic, self.speech_callback)
+
+    @staticmethod
+    def speech_callback(recognizer, audio):  # this is called from the background thread
         try:
-            print("You said: " + recognizer.recognize_sphinx(audio))  # received audio data, now need to recognize it
+            speech = recognizer.recognize_sphinx(audio)
+            print("You said: " + speech)
+            window.set_temporary_message("You said: " + speech)
         except sr.RequestError:
-            print("There was a problem with Voice Recognizer!")
+            window.set_temporary_message("There was a problem with Voice Recognizer!")
         except sr.UnknownValueError:
-            print("Oops! Didn't catch that")
+            window.set_temporary_message("Oops! Didn't catch that. Could you repeat, please?")
+
+    def activate_sound_recognition(self):
+        print("sound recognition")
+
+    def activate_pitch_recognition(self):
+        self.pitch_tracker.start_stream()
 
     def mode_change(self):
         which_button = self.sender()
-        if self.stop is not None:
-            self.activate_recognition(False)
+        self.activate_recognition(False)
         self.recognition_mode = which_button.text()
         self.set_active_button_style()
 
@@ -264,7 +308,7 @@ class MainWidget(QWidget, UIMainWidget):
             self.refresh_view()     # model needs to be send to view
 
     def select_profile(self):
-        """ From the poll of existing profiles allows user to pick one """
+        """ From the poll of existing profiles allow user to pick one """
         login, ok = ProfileDialog.getProfile(self)
         if not ok:
             return

@@ -38,7 +38,9 @@ class UIMainWidget(object):
         self.label1 = QLabel("Profile: not selected", self)
         pyqtgraph.setConfigOption('background', 'w')
         self.sound_visual = PlotWidget()
-        self.sound_visual.plotItem.setRange(yRange=[-1000, 1000])
+        self.sound_visual.plotItem.setRange(yRange=[-2000, 2000])
+        self.sound_visual.setMouseEnabled(x=False, y=False)
+        self.sound_visual.setMenuEnabled(False)
         self.info_panel.addWidget(self.label1)
         self.info_panel.addWidget(self.sound_visual)
 
