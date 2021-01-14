@@ -176,6 +176,7 @@ class MainWidget(QWidget, UIMainWidget):
 
         # Pitch tracking setup
         self.pitch_tracker = PitchRecognition()
+        self.pitch_tracker.signal.connect(self.progress_pitch_data)
 
     def initialize_graph(self):
         self.graph_thread.start()
@@ -267,6 +268,9 @@ class MainWidget(QWidget, UIMainWidget):
 
     def activate_pitch_recognition(self):
         self.pitch_tracker.start_stream()
+
+    def progress_pitch_data(self, note):
+        print(note)
 
     def mode_change(self):
         which_button = self.sender()

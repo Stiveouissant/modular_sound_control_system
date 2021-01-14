@@ -5,8 +5,10 @@ import os
 import copy
 import threading
 
+from PyQt5.QtCore import pyqtSignal, QThread
 
-class PitchRecognition:
+
+class PitchRecognition(QThread):
     SAMPLE_FREQ = 48000  # sample frequency in Hz
     WINDOW_SIZE = 48000  # window size of the DFT in samples
     WINDOW_STEP = 12000  # step size of window
@@ -16,8 +18,10 @@ class PitchRecognition:
     DELTA_FREQ = (SAMPLE_FREQ / WINDOW_SIZE)  # frequency step width of the interpolated DFT
     CONCERT_PITCH = 440
     ALL_NOTES = ["A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#"]
+    signal = pyqtSignal(object)
 
-    def __init__(self):
+    def __init__(self, parent=None):
+        super(PitchRecognition, self).__init__(parent=parent)
         self.hann_window = np.hanning(self.WINDOW_SIZE)
         self.window_samples = [0 for _ in range(self.WINDOW_SIZE)]
         self.noteBuffer = ["1", "2", "3"]
@@ -58,8 +62,7 @@ class PitchRecognition:
                 avg_energy_per_freq = 1 * (np.linalg.norm(magnitude_spec[ind_start:ind_end], ord=2) ** 2) / (ind_end - ind_start)
                 avg_energy_per_freq = avg_energy_per_freq ** 0.5
                 for i in range(ind_start, ind_end):
-                    magnitude_spec[i] = magnitude_spec[i] if magnitude_spec[
-                                                               i] > avg_energy_per_freq else 0  # suppress white noise
+                    magnitude_spec[i] = magnitude_spec[i] if magnitude_spec[i] > avg_energy_per_freq else 0  # suppress white noise
 
             # Interpolate spectrum
             mag_spec_intpol = np.interp(np.arange(0, len(magnitude_spec), 1 / self.NUM_HPS),
@@ -92,7 +95,7 @@ class PitchRecognition:
                 return
             os.system('cls' if os.name == 'nt' else 'clear')
             print(f"Closest note: {closest_note} {max_freq}/{closest_pitch} and detectednote: {detected_note}")
-            self.recognised_note = closest_note
+            self.signal.emit(closest_note)
 
         else:
             print('no input')
