@@ -26,6 +26,7 @@ class PitchRecognition(QThread):
         self.window_samples = [0 for _ in range(self.WINDOW_SIZE)]
         self.noteBuffer = ["1", "2", "3"]
         self.recognised_note = ""
+        self.stream = None
 
     def find_closest_note(self, pitch):
         i = int(np.round(np.log2(pitch / self.CONCERT_PITCH) * 12))

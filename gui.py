@@ -3,7 +3,7 @@
 from PyQt5.QtWidgets import QTableView, QPushButton, QButtonGroup, QGroupBox, QRadioButton, QComboBox, QInputDialog
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QDialog, QDialogButtonBox
+from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QFileDialog
 from PyQt5.QtWidgets import QLabel, QLineEdit
 from PyQt5.QtWidgets import QMessageBox
 from pyqtgraph import PlotWidget
@@ -24,10 +24,11 @@ class UIMainWidget(object):
         self.button_group = QButtonGroup()
         self.button_group.setExclusive(False)
         for v in ('Speech', 'Sound', 'Pitch'):
-            self.btn = QPushButton(v)
-            self.btn.setStyleSheet("background-color: white")
-            self.button_group.addButton(self.btn)
-            button_layout_box.addWidget(self.btn)
+            btn = QPushButton(v)
+            btn.setStyleSheet("background-color: white")
+            btn.setDisabled(True)
+            self.button_group.addButton(btn)
+            button_layout_box.addWidget(btn)
         # group for recognition mode
         self.button_groupbox = QGroupBox('Recognition mode')
         self.button_groupbox.setLayout(button_layout_box)
@@ -136,11 +137,18 @@ class AddTaskDialog(QDialog):
         for v in ('Open File', 'Run Macro', 'Simulate keyboard press', 'Simulate mouse press'):
             self.function_list.addItem(v)
 
-        self.trigger_list = QComboBox(self)
-        for v in ('Say cheese', 'Say rumba', 'Say windows', 'Say mac'):
-            self.trigger_list.addItem(v)
+        if mode == 'Speech':
+            self.trigger_list = QLineEdit()
+        else:
+            self.trigger_list = QComboBox(self)
+            for v in ('C2', 'C#2', 'D2', 'D#2', 'E2'):
+                self.trigger_list.addItem(v)
+
+        self.bonus_data_button = QPushButton('Choose a file')
+        self.bonus_data_button.clicked.connect(self.get_file_path)
 
         self.bonus_data = QLineEdit()
+        self.bonus_data.setReadOnly(True)
 
         self.lower_buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
@@ -154,6 +162,7 @@ class AddTaskDialog(QDialog):
         vertical_layout.addWidget(self.function_list)
         vertical_layout.addWidget(trigger_label)
         vertical_layout.addWidget(self.trigger_list)
+        vertical_layout.addWidget(self.bonus_data_button)
         vertical_layout.addWidget(bonus_label)
         vertical_layout.addWidget(self.bonus_data)
         vertical_layout.addWidget(self.lower_buttons)
@@ -169,8 +178,13 @@ class AddTaskDialog(QDialog):
     def get_data(self):
         return (self.desc_line.text(),
                 str(self.function_list.currentText()),
-                str(self.trigger_list.currentText()),
-                self.bonus_data)
+                str(self.trigger_list.text()),
+                str(self.bonus_data.text()))
+
+    def get_file_path(self):
+        file_name, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
+                                                   "All Files (*);;Executable Files (*.exe)")
+        self.bonus_data.setText(file_name)
 
     @staticmethod
     def get_new_task(parent=None):

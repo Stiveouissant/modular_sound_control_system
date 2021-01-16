@@ -5,6 +5,7 @@ from gui import UIMainWidget, ProfileDialog, AddTaskDialog, ManageProfilesDialog
 import database
 from tabmodel import TabModel
 from pitch import PitchRecognition
+import tasks as TaskHandler
 
 import pyaudio
 import speech_recognition as sr
@@ -152,7 +153,6 @@ class MainWidget(QWidget, UIMainWidget):
         # mode change PushButtons ###
         for btn in self.button_group.buttons():
             btn.clicked.connect(self.mode_change)
-        self.set_active_button_style()
 
         np.set_printoptions(threshold=np.inf)
 
@@ -176,7 +176,7 @@ class MainWidget(QWidget, UIMainWidget):
 
         # Pitch tracking setup
         self.pitch_tracker = PitchRecognition()
-        self.pitch_tracker.signal.connect(self.progress_pitch_data)
+        self.pitch_tracker.signal.connect(self.process_pitch_data)
 
     def initialize_graph(self):
         self.graph_thread.start()
@@ -241,7 +241,8 @@ class MainWidget(QWidget, UIMainWidget):
             elif self.recognition_mode == "Sound":
                 self.activate_sound_recognition()
             else:
-                self.pitch_tracker.stop_stream()
+                if self.pitch_tracker.stream is not None:
+                    self.pitch_tracker.stop_stream()
 
     def activate_speech_recognition(self):
         window.set_temporary_message("Speech recognition activated")
@@ -252,30 +253,42 @@ class MainWidget(QWidget, UIMainWidget):
         # try recognizing the speech from the mic
         self.stop = self.r.listen_in_background(mic, self.speech_callback)
 
-    @staticmethod
-    def speech_callback(recognizer, audio):  # this is called from the background thread
+    def speech_callback(self, recognizer, audio):  # this is called from the background thread
         try:
             speech = recognizer.recognize_sphinx(audio)
             print("You said: " + speech)
             window.set_temporary_message("You said: " + speech)
+            self.execute_tasks(speech)
         except sr.RequestError:
             window.set_temporary_message("There was a problem with Voice Recognizer!")
         except sr.UnknownValueError:
             window.set_temporary_message("Oops! Didn't catch that. Could you repeat, please?")
 
     def activate_sound_recognition(self):
+        window.set_temporary_message("Sound recognition activated")
         print("sound recognition")
 
     def activate_pitch_recognition(self):
+        window.set_temporary_message("Pitch recognition activated")
         self.pitch_tracker.start_stream()
 
-    def progress_pitch_data(self, note):
-        print(note)
+    def process_pitch_data(self, note):
+        window.set_temporary_message("Note: " + note)
+        self.execute_tasks(note)
+
+    def execute_tasks(self, data):
+        print(model.get_tasks())
+        for v in model.get_tasks():
+            if v[0] == data:
+                TaskHandler.execute_task(v[1], v[2])
 
     def mode_change(self):
         which_button = self.sender()
         self.activate_recognition(False)
         self.recognition_mode = which_button.text()
+        tasks = database.read_mode_tasks(self.profile, self.get_recognition_mode_index())
+        model.update(tasks)
+        model.layoutChanged.emit()
         self.set_active_button_style()
 
     def set_active_button_style(self):
@@ -299,12 +312,7 @@ class MainWidget(QWidget, UIMainWidget):
             QMessageBox.critical(self, 'Error', 'Description cannot be empty!', QMessageBox.Ok)
             return
 
-        if self.recognition_mode == 'Speech':
-            trigger_type = 0
-        elif self.recognition_mode == 'Sound':
-            trigger_type = 1
-        else:
-            trigger_type = 2
+        trigger_type = self.get_recognition_mode_index()
         task = database.add_task(desc, func, trigger, trigger_type, data, self.profile)
         model.table.append(task)
         model.layoutChanged.emit()  # signal that there was a change
@@ -322,11 +330,16 @@ class MainWidget(QWidget, UIMainWidget):
             QMessageBox.critical(self, 'Error', 'Could not find the profile!', QMessageBox.Ok)
             return
 
-        tasks = database.read_tasks(self.profile)
+        tasks = database.read_mode_tasks(self.profile, self.get_recognition_mode_index())
         model.update(tasks)
         model.layoutChanged.emit()
         self.info_panel.itemAt(0).widget().setText("Profile: " + login)
         self.refresh_view()
+
+        for btn in self.button_group.buttons():
+            btn.setEnabled(True)
+
+        self.set_active_button_style()
 
         self.add_task_button.setEnabled(True)
         self.save_changes_button.setEnabled(True)
@@ -338,6 +351,14 @@ class MainWidget(QWidget, UIMainWidget):
         # stretch last column and resize on main window resize
         self.view.horizontalHeader().setStretchLastSection(True)
         self.view.resizeColumnsToContents()
+
+    def get_recognition_mode_index(self):
+        if self.recognition_mode == "Speech":
+            return 0
+        elif self.recognition_mode == "Sound":
+            return 1
+        else:
+            return 2
 
 
 if __name__ == '__main__':

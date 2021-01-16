@@ -4,7 +4,7 @@ from peewee import *
 from datetime import datetime
 
 base = SqliteDatabase('profiles.db')
-fields = ['Id', 'Description', 'Function', 'Trigger', "Active", 'Delete']
+fields = ['Id', 'Description', 'Function', 'Trigger', 'Bonus Data', 'Active', 'Delete']
 
 
 class DataModel(Model):
@@ -93,6 +93,23 @@ def read_tasks(profile):
             z.desc,
             z.func,
             z.trigger,
+            z.bonusData,
+            z.active,
+            False])
+    return tasks
+
+
+def read_mode_tasks(profile, mode):
+    """ Reads all tasks of the given profile of the given trigger type """
+    tasks = []
+    records = RecognitionTask.select().where(RecognitionTask.profile == profile, RecognitionTask.triggerType == mode)
+    for z in records:
+        tasks.append([
+            z.id,
+            z.desc,
+            z.func,
+            z.trigger,
+            z.bonusData,
             z.active,
             False])
     return tasks
@@ -117,6 +134,7 @@ def add_task(desc, func, trigger, trigger_type, data, profile):
         task.desc,
         task.func,
         task.trigger,
+        task.bonusData,
         task.active,
         False]
 
@@ -147,10 +165,10 @@ def saveData(tasks):
     for i, z in enumerate(tasks):
         # creates tasks instance
         task = RecognitionTask.select().where(RecognitionTask.id == z[0]).get()
-        if z[5]:  # if tasks is selected for deletion
+        if z[6]:  # if tasks is selected for deletion
             task.delete_instance()  # delete from database
             del tasks[i]  # delete from data model
         else:
             task.desc = z[1]
-            task.active = z[4]
+            task.active = z[5]
             task.save()

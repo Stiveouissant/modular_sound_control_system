@@ -34,7 +34,7 @@ class TabModel(QAbstractTableModel):
 
         if role == Qt.DisplayRole:
             return '{0}'.format(self.table[i][j])
-        elif role == Qt.CheckStateRole and (j == 4 or j == 5):
+        elif role == Qt.CheckStateRole and (j == 5 or j == 6):
             if self.table[i][j]:
                 return Qt.Checked
             else:
@@ -44,13 +44,19 @@ class TabModel(QAbstractTableModel):
         else:
             return QVariant()
 
+    def get_tasks(self):
+        task_list = []
+        for v in self.table:
+            task_list.append((v[3], v[2], v[4]))
+        return task_list
+
     def flags(self, index):
         """ Returns properties of the column """
         flags = super(TabModel, self).flags(index)
         j = index.column()
         if j == 1:
             flags |= Qt.ItemIsEditable
-        elif j == 4 or j == 5:
+        elif j == 5 or j == 6:
             flags |= Qt.ItemIsUserCheckable
 
         return flags
@@ -61,7 +67,7 @@ class TabModel(QAbstractTableModel):
         j = index.column()
         if role == Qt.EditRole and j == 1:
             self.table[i][j] = value
-        elif role == Qt.CheckStateRole and (j == 4 or j == 5):
+        elif role == Qt.CheckStateRole and (j == 5 or j == 6):
             if value:
                 self.table[i][j] = True
             else:
