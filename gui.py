@@ -125,27 +125,32 @@ class AddTaskDialog(QDialog):
     def __init__(self, parent=None, mode="Speech"):
         super(AddTaskDialog, self).__init__(parent)
 
-        # labels
+        # mode ###
+        self.mode = mode
+
+        # labels ###
         desc_label = QLabel("Description:", self)
         func_label = QLabel("Function:", self)
         trigger_label = QLabel("Trigger:", self)
-        bonus_label = QLabel("Bonus data:", self)
+        self.bonus_label = QLabel("File Path:", self)
 
         self.desc_line = QLineEdit()
 
         self.function_list = QComboBox(self)
-        for v in ('Open File', 'Run Macro', 'Simulate keyboard press', 'Simulate mouse press'):
+        for v in ('Open File', 'Open URL', 'Simulate Keyboard', 'Write Text'):
             self.function_list.addItem(v)
 
-        if mode == 'Speech':
+        if self.mode == 'Speech':
+            self.trigger_list = QLineEdit()
+        elif self.mode == 'Sound':
             self.trigger_list = QLineEdit()
         else:
             self.trigger_list = QComboBox(self)
-            for v in ('C2', 'C#2', 'D2', 'D#2', 'E2'):
+            for v in ('C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'):
                 self.trigger_list.addItem(v)
 
+        # Function specific widgets ###
         self.bonus_data_button = QPushButton('Choose a file')
-        self.bonus_data_button.clicked.connect(self.get_file_path)
 
         self.bonus_data = QLineEdit()
         self.bonus_data.setReadOnly(True)
@@ -162,14 +167,17 @@ class AddTaskDialog(QDialog):
         vertical_layout.addWidget(self.function_list)
         vertical_layout.addWidget(trigger_label)
         vertical_layout.addWidget(self.trigger_list)
+        vertical_layout.addWidget(self.bonus_label)
         vertical_layout.addWidget(self.bonus_data_button)
-        vertical_layout.addWidget(bonus_label)
         vertical_layout.addWidget(self.bonus_data)
         vertical_layout.addWidget(self.lower_buttons)
 
-        # button connects ###
+        # connects ###
         self.lower_buttons.accepted.connect(self.accept)
         self.lower_buttons.rejected.connect(self.reject)
+        self.bonus_data_button.clicked.connect(self.get_file_path)
+
+        self.function_list.currentTextChanged.connect(self.on_function_list_changed)
 
         # properties ###
         self.setModal(True)  # can't leave the window before closing
@@ -180,6 +188,26 @@ class AddTaskDialog(QDialog):
                 str(self.function_list.currentText()),
                 str(self.trigger_list.text()),
                 str(self.bonus_data.text()))
+
+    def on_function_list_changed(self, value):
+        if value == 'Open File':
+            self.bonus_data_button.setText('Choose a file')
+            self.bonus_data_button.show()
+            self.bonus_data_button.clicked.connect(self.get_file_path)
+            self.bonus_label.setText('File path:')
+            self.bonus_data.setReadOnly(True)
+        elif value == 'Open URL':
+            self.bonus_data_button.hide()
+            self.bonus_data.setReadOnly(False)
+            self.bonus_label.setText('Write/paste your URL here:')
+        elif value == 'Simulate Keyboard':
+            self.bonus_data_button.hide()
+            self.bonus_data.setReadOnly(False)
+            self.bonus_label.setText('Write your script here:')
+        elif value == 'Write Text':
+            self.bonus_data_button.hide()
+            self.bonus_data.setReadOnly(False)
+            self.bonus_label.setText('Write your message here:')
 
     def get_file_path(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",

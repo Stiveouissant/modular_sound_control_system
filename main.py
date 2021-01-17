@@ -77,6 +77,7 @@ class MainWindow(QMainWindow):
 
     def manage_profiles(self):
         ManageProfilesDialog.manage_profiles()
+        self.main_widget.activate_recognition(False)
         self.main_widget.activate_recognition_button.setDisabled(True)
         self.main_widget.add_task_button.setDisabled(True)
         self.main_widget.save_changes_button.setDisabled(True)
@@ -237,7 +238,7 @@ class MainWidget(QWidget, UIMainWidget):
             self.activate_recognition_button.setStyleSheet("background-color:lightgrey;")
             if self.recognition_mode == "Speech":
                 if self.stop is not None:
-                    self.stop(wait_for_stop=False)  # wait_for_stop=False
+                    self.stop(wait_for_stop=False)
             elif self.recognition_mode == "Sound":
                 self.activate_sound_recognition()
             else:
@@ -258,7 +259,8 @@ class MainWidget(QWidget, UIMainWidget):
             speech = recognizer.recognize_sphinx(audio)
             print("You said: " + speech)
             window.set_temporary_message("You said: " + speech)
-            self.execute_tasks(speech)
+            if speech != '':
+                self.execute_tasks(speech)
         except sr.RequestError:
             window.set_temporary_message("There was a problem with Voice Recognizer!")
         except sr.UnknownValueError:
@@ -277,9 +279,8 @@ class MainWidget(QWidget, UIMainWidget):
         self.execute_tasks(note)
 
     def execute_tasks(self, data):
-        print(model.get_tasks())
         for v in model.get_tasks():
-            if v[0] == data:
+            if v[0] in data:
                 TaskHandler.execute_task(v[1], v[2])
 
     def mode_change(self):
@@ -289,6 +290,7 @@ class MainWidget(QWidget, UIMainWidget):
         tasks = database.read_mode_tasks(self.profile, self.get_recognition_mode_index())
         model.update(tasks)
         model.layoutChanged.emit()
+        self.refresh_view()
         self.set_active_button_style()
 
     def set_active_button_style(self):
