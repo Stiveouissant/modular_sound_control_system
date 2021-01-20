@@ -3,6 +3,7 @@ from PyQt5.QtCore import Qt, pyqtSignal, QThread
 
 from gui import UIMainWidget, ProfileDialog, AddTaskDialog, ManageProfilesDialog, SettingsDialog
 import database
+from sound import SoundRecognition
 from tabmodel import TabModel
 from pitch import PitchRecognition
 import tasks as TaskHandler
@@ -22,7 +23,7 @@ class MainWindow(QMainWindow):
 
         # widget settings ###
         self.setWindowTitle("Modular Sound Control System")
-        self.resize(500, 300)
+        self.resize(600, 400)
 
         self.main_widget = MainWidget()
         self.setCentralWidget(self.main_widget)
@@ -52,6 +53,8 @@ class MainWindow(QMainWindow):
     def _createStatusBar(self):
         self.statusbar = QStatusBar()
         self.setStatusBar(self.statusbar)
+        self.profile_label = self.main_widget.p_label
+        self.statusbar.addPermanentWidget(self.profile_label)
 
     def _createActions(self):
         self.change_profile_action = QAction("&Manage Profiles", self)
@@ -123,13 +126,14 @@ class GraphUpdateThread(QThread):
         self.chunk = 1024
         self.stream = self.p.open(format=pyaudio.paInt16, channels=1,
                                   rate=44000, input=True, frames_per_buffer=self.chunk)
+        self.exiting = False
 
     def __del__(self):
         self.exiting = True
         self.wait()
 
     def run(self):
-        while self.stream.is_active():
+        while not self.exiting:
             data = np.frombuffer(self.stream.read(self.chunk), dtype=np.int16)
             data = [-2500 if x < -2500 else 2500 if x > 2500 else x for x in data]
             self.signal.emit(data)
@@ -174,6 +178,10 @@ class MainWidget(QWidget, UIMainWidget):
         self.r = sr.Recognizer()  # recognizer for speech to text
         self.r.energy_threshold = 6000  # higher the value - louder the room
         # r.pause_threshold = 0.4  # how many seconds of silence before processing audio
+
+        # Sound detection setup
+        self.sound_detector = SoundRecognition()
+        self.sound_detector.signal.connect(self.process_sound_data)
 
         # Pitch tracking setup
         self.pitch_tracker = PitchRecognition()
@@ -240,7 +248,8 @@ class MainWidget(QWidget, UIMainWidget):
                 if self.stop is not None:
                     self.stop(wait_for_stop=False)
             elif self.recognition_mode == "Sound":
-                self.activate_sound_recognition()
+                if self.sound_detector.isRunning() is True:
+                    self.sound_detector.__del__()
             else:
                 if self.pitch_tracker.stream is not None:
                     self.pitch_tracker.stop_stream()
@@ -268,7 +277,11 @@ class MainWidget(QWidget, UIMainWidget):
 
     def activate_sound_recognition(self):
         window.set_temporary_message("Sound recognition activated")
-        print("sound recognition")
+        self.sound_detector.start()
+
+    def process_sound_data(self, sounds):
+        window.set_temporary_message("Order of sounds: " + sounds)
+        self.execute_tasks(sounds)
 
     def activate_pitch_recognition(self):
         window.set_temporary_message("Pitch recognition activated")
@@ -280,7 +293,7 @@ class MainWidget(QWidget, UIMainWidget):
 
     def execute_tasks(self, data):
         for v in model.get_tasks():
-            if v[0] in data:
+            if v[0] in data and v[3] is True:
                 TaskHandler.execute_task(v[1], v[2])
 
     def mode_change(self):
@@ -307,7 +320,7 @@ class MainWidget(QWidget, UIMainWidget):
 
     def add_task(self):
         """ Adds new task """
-        desc, func, trigger, data, ok = AddTaskDialog.get_new_task()
+        desc, func, trigger, data, ok = AddTaskDialog.get_new_task(mode=self.recognition_mode)
         if not ok:
             return
         elif not desc.strip():
@@ -335,7 +348,7 @@ class MainWidget(QWidget, UIMainWidget):
         tasks = database.read_mode_tasks(self.profile, self.get_recognition_mode_index())
         model.update(tasks)
         model.layoutChanged.emit()
-        self.info_panel.itemAt(0).widget().setText("Profile: " + login)
+        self.p_label.setText("Profile: " + login)
         self.refresh_view()
 
         for btn in self.button_group.buttons():

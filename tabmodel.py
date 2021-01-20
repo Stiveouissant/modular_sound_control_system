@@ -47,7 +47,7 @@ class TabModel(QAbstractTableModel):
     def get_tasks(self):
         task_list = []
         for v in self.table:
-            task_list.append((v[3], v[2], v[4]))
+            task_list.append((v[3], v[2], v[4], v[5]))
         return task_list
 
     def flags(self, index):

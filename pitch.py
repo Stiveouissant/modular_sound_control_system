@@ -95,14 +95,14 @@ class PitchRecognition(QThread):
             else:
                 return
             os.system('cls' if os.name == 'nt' else 'clear')
-            print(f"Closest note: {closest_note} {max_freq}/{closest_pitch} and detectednote: {detected_note}")
+            print(f"Closest note: {closest_note} {max_freq}/{closest_pitch}")
             self.signal.emit(closest_note)
 
         else:
             print('no input')
 
     def create_stream(self):
-        print("Starting HPS guitar tuner...")
+        print("Starting Pitch Tracking based on HPS...")
         self.stream = sd.InputStream(channels=1, callback=self.pitch_callback, blocksize=self.WINDOW_STEP,
                                      samplerate=self.SAMPLE_FREQ)
         self.stream.start()

@@ -35,15 +35,11 @@ class UIMainWidget(object):
         self.button_groupbox.setObjectName('Push')
 
         # info panel with profile and sound visuals
-        self.info_panel = QHBoxLayout()
-        self.label1 = QLabel("Profile: not selected", self)
         pyqtgraph.setConfigOption('background', 'w')
         self.sound_visual = PlotWidget()
         self.sound_visual.plotItem.setRange(yRange=[-2000, 2000])
         self.sound_visual.setMouseEnabled(x=False, y=False)
         self.sound_visual.setMenuEnabled(False)
-        self.info_panel.addWidget(self.label1)
-        self.info_panel.addWidget(self.sound_visual)
 
         # Activate button
         self.activate_recognition_button = QPushButton("Activate recognition")
@@ -67,10 +63,13 @@ class UIMainWidget(object):
         lower_buttons_layout.addWidget(self.add_task_button)
         lower_buttons_layout.addWidget(self.save_changes_button)
 
+        # Profile label
+        self.p_label = QLabel("Profile: not selected", self)
+
         # vertical layout for all elements ###
         layoutV = QVBoxLayout(self)
         layoutV.addWidget(self.button_groupbox)
-        layoutV.addLayout(self.info_panel)
+        layoutV.addWidget(self.sound_visual)
         layoutV.addWidget(self.activate_recognition_button)
         layoutV.addWidget(self.view)
         layoutV.addLayout(lower_buttons_layout)
@@ -143,11 +142,27 @@ class AddTaskDialog(QDialog):
         if self.mode == 'Speech':
             self.trigger_list = QLineEdit()
         elif self.mode == 'Sound':
-            self.trigger_list = QLineEdit()
+            self.sound_trigger_list_value = 'lt;lt;lt;'
+            self.sound_trigger_list_buttons_layout = QHBoxLayout()
+            self.sound_trigger_list = QButtonGroup()
+            self.sound_trigger_list.setExclusive(False)
+            for v in ('Light', 'Light', 'Light'):
+                btn = QPushButton(v)
+                btn.setCheckable(True)
+                self.sound_trigger_list.addButton(btn)
+                self.sound_trigger_list_buttons_layout.addWidget(btn)
+            for btn in self.sound_trigger_list.buttons():
+                btn.clicked[bool].connect(self.set_sound_trigger)
         else:
+            self.pitch_trigger_layout = QHBoxLayout()
             self.trigger_list = QComboBox(self)
             for v in ('C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'):
                 self.trigger_list.addItem(v)
+            self.octave_list = QComboBox(self)
+            for v in ('1', '2', '3', '4', '5', '6', '7', '8'):
+                self.octave_list.addItem(v)
+            self.pitch_trigger_layout.addWidget(self.trigger_list)
+            self.pitch_trigger_layout.addWidget(self.octave_list)
 
         # Function specific widgets ###
         self.bonus_data_button = QPushButton('Choose a file')
@@ -166,7 +181,12 @@ class AddTaskDialog(QDialog):
         vertical_layout.addWidget(func_label)
         vertical_layout.addWidget(self.function_list)
         vertical_layout.addWidget(trigger_label)
-        vertical_layout.addWidget(self.trigger_list)
+        if self.mode == 'Speech':
+            vertical_layout.addWidget(self.trigger_list)
+        elif self.mode == 'Sound':
+            vertical_layout.addLayout(self.sound_trigger_list_buttons_layout)
+        else:
+            vertical_layout.addLayout(self.pitch_trigger_layout)
         vertical_layout.addWidget(self.bonus_label)
         vertical_layout.addWidget(self.bonus_data_button)
         vertical_layout.addWidget(self.bonus_data)
@@ -183,11 +203,36 @@ class AddTaskDialog(QDialog):
         self.setModal(True)  # can't leave the window before closing
         self.setWindowTitle('Add new Task')
 
+    def set_sound_trigger(self, val):
+        sender = self.sender()
+        if val:
+            sender.setText('Hard')
+            self.set_sound_trigger_list_value()
+        else:
+            sender.setText('Light')
+            self.set_sound_trigger_list_value()
+
+    def set_sound_trigger_list_value(self):
+        l = []
+        for btn in self.sound_trigger_list.buttons():
+            if btn.text() == 'Light':
+                l.append('lt;')
+            if btn.text() == 'Hard':
+                l.append('ht;')
+        self.sound_trigger_list_value = ''.join(l)
+
     def get_data(self):
-        return (self.desc_line.text(),
-                str(self.function_list.currentText()),
-                str(self.trigger_list.text()),
-                str(self.bonus_data.text()))
+        desc = self.desc_line.text()
+        function = self.function_list.currentText()
+        if self.mode == 'Speech':
+            trigger = self.trigger_list.text()
+        elif self.mode == 'Sound':
+            trigger = self.sound_trigger_list_value
+        else:
+            trigger = self.trigger_list.currentText() + self.octave_list.currentText()
+        bonus_data = self.bonus_data.text()
+
+        return desc, function, trigger, bonus_data
 
     def on_function_list_changed(self, value):
         if value == 'Open File':
@@ -215,8 +260,8 @@ class AddTaskDialog(QDialog):
         self.bonus_data.setText(file_name)
 
     @staticmethod
-    def get_new_task(parent=None):
-        dialog = AddTaskDialog(parent)
+    def get_new_task(parent=None, mode='Speech'):
+        dialog = AddTaskDialog(parent, mode)
         ok = dialog.exec_()
         desc, func, trigger, data = dialog.get_data()
         return desc, func, trigger, data, ok == QDialog.Accepted
