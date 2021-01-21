@@ -25,9 +25,14 @@ def _open_url(url):
 
 def _simulate_keyboard_input(script):
     script_list = script.split(";")
+    del script_list[-1]
     print(script_list)
     for sc in script_list:
         inst = sc.split(",")
+        if inst[0] == 'comma':
+            inst[0] = ','
+        elif inst[0] == 'semicolon':
+            inst[0] = ';'
         print(inst)
         if inst[1] == "Down":
             pyautogui.keyDown(inst[0])

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtWidgets import QTableView, QPushButton, QButtonGroup, QGroupBox, QRadioButton, QComboBox, QInputDialog
+from PyQt5.QtWidgets import QTableView, QPushButton, QButtonGroup, QGroupBox, QRadioButton, QComboBox, QInputDialog, \
+    QToolButton, QMenu, QDoubleSpinBox
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QFileDialog
@@ -201,7 +202,7 @@ class AddTaskDialog(QDialog):
 
         # properties ###
         self.setModal(True)  # can't leave the window before closing
-        self.setWindowTitle('Add new Task')
+        self.setWindowTitle('Add new Task - ' + self.mode)
 
     def set_sound_trigger(self, val):
         sender = self.sender()
@@ -238,19 +239,27 @@ class AddTaskDialog(QDialog):
         if value == 'Open File':
             self.bonus_data_button.setText('Choose a file')
             self.bonus_data_button.show()
+            self.bonus_data_button.clicked.disconnect()
             self.bonus_data_button.clicked.connect(self.get_file_path)
             self.bonus_label.setText('File path:')
+            self.bonus_data.setText("")
             self.bonus_data.setReadOnly(True)
         elif value == 'Open URL':
             self.bonus_data_button.hide()
+            self.bonus_data.setText("")
             self.bonus_data.setReadOnly(False)
             self.bonus_label.setText('Write/paste your URL here:')
         elif value == 'Simulate Keyboard':
-            self.bonus_data_button.hide()
-            self.bonus_data.setReadOnly(False)
-            self.bonus_label.setText('Write your script here:')
+            self.bonus_data_button.setText('Make your script')
+            self.bonus_data_button.show()
+            self.bonus_data_button.clicked.disconnect()
+            self.bonus_data_button.clicked.connect(self.get_keyboard_script)
+            self.bonus_data.setText("")
+            self.bonus_data.setReadOnly(True)
+            self.bonus_label.setText('Your keyboard script:')
         elif value == 'Write Text':
             self.bonus_data_button.hide()
+            self.bonus_data.setText("")
             self.bonus_data.setReadOnly(False)
             self.bonus_label.setText('Write your message here:')
 
@@ -258,6 +267,12 @@ class AddTaskDialog(QDialog):
         file_name, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
                                                    "All Files (*);;Executable Files (*.exe)")
         self.bonus_data.setText(file_name)
+
+    def get_keyboard_script(self):
+        script, ok = KeyboardScriptDialog.get_script(self)
+        if not ok:
+            return
+        self.bonus_data.setText(script)
 
     @staticmethod
     def get_new_task(parent=None, mode='Speech'):
@@ -380,3 +395,103 @@ class SettingsDialog(QDialog):
         dialog = SettingsDialog(parent, mic_list)
         ok = dialog.exec_()
         return dialog.get_data(), ok == QDialog.Accepted
+
+
+class KeyboardScriptDialog(QDialog):
+    """ Keyboard script maker dialog """
+
+    def __init__(self, parent=None):
+        super(KeyboardScriptDialog, self).__init__(parent)
+
+        keyboard_keys = [' ', '!', '"', '#', '$', '%', '&', "'", '(',
+                         ')', '*', '+', 'comma', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7',
+                         '8', '9', ':', 'semicolon', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`',
+                         'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
+                         'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '|', '}', '~',
+                         'accept', 'add', 'alt', 'altleft', 'altright', 'apps', 'backspace',
+                         'browserback', 'browserfavorites', 'browserforward', 'browserhome',
+                         'browserrefresh', 'browsersearch', 'browserstop', 'capslock', 'clear',
+                         'convert', 'ctrl', 'ctrlleft', 'ctrlright', 'decimal', 'del', 'delete',
+                         'divide', 'down', 'end', 'enter', 'esc', 'escape', 'execute', 'f1', 'f10',
+                         'f11', 'f12', 'f13', 'f14', 'f15', 'f16', 'f17', 'f18', 'f19', 'f2', 'f20',
+                         'f21', 'f22', 'f23', 'f24', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9',
+                         'final', 'fn', 'hanguel', 'hangul', 'hanja', 'help', 'home', 'insert', 'junja',
+                         'kana', 'kanji', 'launchapp1', 'launchapp2', 'launchmail',
+                         'launchmediaselect', 'left', 'modechange', 'multiply', 'nexttrack',
+                         'nonconvert', 'num0', 'num1', 'num2', 'num3', 'num4', 'num5', 'num6',
+                         'num7', 'num8', 'num9', 'numlock', 'pagedown', 'pageup', 'pause', 'pgdn',
+                         'pgup', 'playpause', 'prevtrack', 'print', 'printscreen', 'prntscrn',
+                         'prtsc', 'prtscr', 'return', 'right', 'scrolllock', 'select', 'separator',
+                         'shift', 'shiftleft', 'shiftright', 'sleep', 'space', 'stop', 'subtract', 'tab',
+                         'up', 'volumedown', 'volumemute', 'volumeup', 'win', 'winleft', 'winright', 'yen',
+                         'command', 'option', 'optionleft', 'optionright']
+
+        self.keyboard_button = QComboBox(self)
+        for v in keyboard_keys:
+            self.keyboard_button.addItem(v)
+
+        self.press_type_list = QComboBox(self)
+        self.press_type_list.addItem('Press')
+        self.press_type_list.addItem('Down')
+        self.press_type_list.addItem('Up')
+
+        self.time_box = QDoubleSpinBox(self)
+        self.time_box.setRange(0.0, 10.0)
+        self.time_box.setSingleStep(0.1)
+        self.time_box.setDecimals(1)
+
+        self.add_to_script_button = QPushButton("Add to script")
+        self.add_to_script_button.clicked.connect(self.add_to_script_line)
+
+        self.delete_script_button = QPushButton("Remove last script")
+        self.delete_script_button.clicked.connect(self.remove_last_script)
+
+        self.buttons_layout = QHBoxLayout()
+        self.buttons_layout.addWidget(self.add_to_script_button)
+        self.buttons_layout.addWidget(self.delete_script_button)
+
+        self.script_line = QLineEdit(self)
+        self.script_line.setReadOnly(True)
+
+        self.lower_buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+
+        # main layout ###
+        vertical_layout = QVBoxLayout(self)
+        vertical_layout.addWidget(self.keyboard_button)
+        vertical_layout.addWidget(self.press_type_list)
+        vertical_layout.addWidget(self.time_box)
+        vertical_layout.addLayout(self.buttons_layout)
+        vertical_layout.addWidget(self.script_line)
+        vertical_layout.addWidget(self.lower_buttons)
+
+        # button connects ###
+        self.lower_buttons.accepted.connect(self.accept)
+        self.lower_buttons.rejected.connect(self.reject)
+
+        # properties ###
+        self.setModal(True)  # can't leave the window before closing
+        self.setWindowTitle('Keyboard script')
+
+    def retrieve_script(self):
+        return f"{self.keyboard_button.currentText()},{self.press_type_list.currentText()},{self.time_box.value():.1f};"
+
+    def add_to_script_line(self):
+        self.script_line.setText(self.script_line.text() + self.retrieve_script())
+
+    def remove_last_script(self):
+        scripts = [e+";" for e in self.script_line.text().split(";") if e]
+        if len(scripts) > 0:
+            del scripts[-1]
+            self.script_line.setText(''.join(scripts))
+
+    def callback_factory(self, k, v):
+        return lambda: self.key_button.setText('{0}_{1}'.format(k, v))
+
+    # creates dialog returns profile name and accept from dialog
+    @staticmethod
+    def get_script(parent=None):
+        dialog = KeyboardScriptDialog(parent)
+        ok = dialog.exec_()
+        return dialog.script_line.text(), ok == QDialog.Accepted
