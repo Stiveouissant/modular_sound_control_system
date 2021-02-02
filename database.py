@@ -53,9 +53,9 @@ def loadData():
     """ Prepares default profile and tasks if there are none """
     if Profile.select().count() > 0:
         return
-    tasks = (('Default recognition task 1', 'Open File', 'Open File', 0, 'clap.mp3'),
-             ('Default recognition task 2', 'Open File', 'Clap', 1, 'clap.mp3'),
-             ('Default recognition task 3', 'Open File', 'A', 2, 'clap.mp3'))
+    tasks = (('Default speech recognition task', 'Write Text', 'Test', 0, 'Speech works!'),
+             ('Default sound recognition task', 'Write Text', 'lt;lt;lt;', 1, 'Sound works!'),
+             ('Default pitch recognition task', 'Write Text', 'A4', 2, 'Pitch works!'))
     o = Profile(login='profile1')
     o.save()
     for task in tasks:
@@ -144,9 +144,9 @@ def save_profiles(profiles):
     for i, z in enumerate(profiles):
         # creates profile instance
         profile = Profile.select().where(Profile.id == z[0]).get()
-        if z[2]:  # if tasks is selected for deletion
+        if z[2]:  # if profile is selected for deletion
             delete_profile_tasks(profile)  # deletes all tasks belonging to a profile
-            profile.delete_instance()  # delete from database
+            profile.delete_instance()  # delete profile from database
             del profiles[i]  # delete from data model
         else:
             profile.login = z[1]

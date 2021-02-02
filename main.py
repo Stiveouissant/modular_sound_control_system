@@ -38,7 +38,7 @@ class MainWindow(QMainWindow):
         # Creating menu using a QMenu object
         file_menu = QMenu("&File", self)
         file_menu.addAction(self.change_profile_action)
-        file_menu.addAction(self.extract_profile_action)
+        file_menu.addAction(self.import_profile_action)
         file_menu.addSeparator()
         file_menu.addAction(self.exit_action)
         settings_menu = QMenu("&Settings", self)
@@ -58,7 +58,7 @@ class MainWindow(QMainWindow):
 
     def _createActions(self):
         self.change_profile_action = QAction("&Manage Profiles", self)
-        self.extract_profile_action = QAction("&Import Profile", self)
+        self.import_profile_action = QAction("&Import Profile", self)
         self.exit_action = QAction("&Exit", self)
         self.settings_action = QAction("&Settings", self)
         self.help_content_action = QAction("&Help Content", self)
@@ -67,7 +67,7 @@ class MainWindow(QMainWindow):
     def _connectActions(self):
         # Connect File actions
         self.change_profile_action.triggered.connect(self.manage_profiles)
-        self.extract_profile_action.triggered.connect(self.import_profile)
+        self.import_profile_action.triggered.connect(self.import_profile)
         self.exit_action.triggered.connect(self.exit_action_triggered)
         # Connect Settings actions
         self.settings_action.triggered.connect(self.settings)
@@ -176,7 +176,7 @@ class MainWidget(QWidget, UIMainWidget):
 
         self.stop = None  # variable for storing stop function for background listening
         self.r = sr.Recognizer()  # recognizer for speech to text
-        self.r.energy_threshold = 6000  # higher the value - louder the room
+        self.r.energy_threshold = 3000 # higher the value - louder the room
         # r.pause_threshold = 0.4  # how many seconds of silence before processing audio
 
         # Sound detection setup

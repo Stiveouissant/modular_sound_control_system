@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from PyQt5.QtWidgets import QTableView, QPushButton, QButtonGroup, QGroupBox, QRadioButton, QComboBox, QInputDialog, \
-    QToolButton, QMenu, QDoubleSpinBox
+    QToolButton, QMenu, QDoubleSpinBox, QCheckBox, QSpinBox
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QFileDialog
@@ -39,6 +39,7 @@ class UIMainWidget(object):
         pyqtgraph.setConfigOption('background', 'w')
         self.sound_visual = PlotWidget()
         self.sound_visual.plotItem.setRange(yRange=[-2000, 2000])
+        self.sound_visual.setMaximumHeight(200)
         self.sound_visual.setMouseEnabled(x=False, y=False)
         self.sound_visual.setMenuEnabled(False)
 
@@ -137,7 +138,7 @@ class AddTaskDialog(QDialog):
         self.desc_line = QLineEdit()
 
         self.function_list = QComboBox(self)
-        for v in ('Open File', 'Open URL', 'Simulate Keyboard', 'Write Text'):
+        for v in ('Open File', 'Open URL', 'Simulate Keyboard', 'Simulate Mouse', 'Write Text', 'Take Screenshot'):
             self.function_list.addItem(v)
 
         if self.mode == 'Speech':
@@ -226,7 +227,7 @@ class AddTaskDialog(QDialog):
         desc = self.desc_line.text()
         function = self.function_list.currentText()
         if self.mode == 'Speech':
-            trigger = self.trigger_list.text()
+            trigger = self.trigger_list.text().lower()
         elif self.mode == 'Sound':
             trigger = self.sound_trigger_list_value
         else:
@@ -257,11 +258,24 @@ class AddTaskDialog(QDialog):
             self.bonus_data.setText("")
             self.bonus_data.setReadOnly(True)
             self.bonus_label.setText('Your keyboard script:')
+        elif value == 'Simulate Mouse':
+            self.bonus_data_button.setText('Make your script')
+            self.bonus_data_button.show()
+            self.bonus_data_button.clicked.disconnect()
+            self.bonus_data_button.clicked.connect(self.get_mouse_script)
+            self.bonus_data.setText("")
+            self.bonus_data.setReadOnly(True)
+            self.bonus_label.setText('Your mouse script:')
         elif value == 'Write Text':
             self.bonus_data_button.hide()
             self.bonus_data.setText("")
             self.bonus_data.setReadOnly(False)
             self.bonus_label.setText('Write your message here:')
+        elif value == 'Take Screenshot':
+            self.bonus_data_button.hide()
+            self.bonus_data.setText("")
+            self.bonus_data.setReadOnly(True)
+            self.bonus_label.setText('No bonus data required')
 
     def get_file_path(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
@@ -270,6 +284,12 @@ class AddTaskDialog(QDialog):
 
     def get_keyboard_script(self):
         script, ok = KeyboardScriptDialog.get_script(self)
+        if not ok:
+            return
+        self.bonus_data.setText(script)
+
+    def get_mouse_script(self):
+        script, ok = MouseScriptDialog.get_script(self)
         if not ok:
             return
         self.bonus_data.setText(script)
@@ -486,12 +506,123 @@ class KeyboardScriptDialog(QDialog):
             del scripts[-1]
             self.script_line.setText(''.join(scripts))
 
-    def callback_factory(self, k, v):
-        return lambda: self.key_button.setText('{0}_{1}'.format(k, v))
+    # def callback_factory(self, k, v):
+    #     return lambda: self.key_button.setText('{0}_{1}'.format(k, v))
 
-    # creates dialog returns profile name and accept from dialog
     @staticmethod
     def get_script(parent=None):
         dialog = KeyboardScriptDialog(parent)
+        ok = dialog.exec_()
+        return dialog.script_line.text(), ok == QDialog.Accepted
+
+
+class MouseScriptDialog(QDialog):
+    """ Keyboard script maker dialog """
+
+    def __init__(self, parent=None):
+        super(MouseScriptDialog, self).__init__(parent)
+
+        self.movement_type_layout = QHBoxLayout()
+        for v in ['Relative', 'Direct']:
+            self.radio = QRadioButton(v)
+            self.movement_type_layout.addWidget(self.radio)
+        self.movement_type_layout.itemAt(0).widget().setChecked(True)
+
+        self.x_y_coordinates_layout = QHBoxLayout()
+        self.x_coordinate = QSpinBox(self)
+        self.x_coordinate.setRange(0, 10000)
+        self.x_coordinate.setSingleStep(1)
+        self.y_coordinate = QSpinBox(self)
+        self.y_coordinate.setRange(0, 10000)
+        self.y_coordinate.setSingleStep(1)
+        self.x_y_coordinates_layout.addWidget(self.x_coordinate)
+        self.x_y_coordinates_layout.addWidget(self.y_coordinate)
+
+        self.movement_time = QDoubleSpinBox(self)
+        self.movement_time.setRange(0.0, 10.0)
+        self.movement_time.setSingleStep(0.1)
+        self.movement_time.setDecimals(1)
+
+        self.button_list = QComboBox(self)
+        self.button_list.addItem('left')
+        self.button_list.addItem('middle')
+        self.button_list.addItem('right')
+        self.button_list.addItem('scroll-up')
+        self.button_list.addItem('scroll-down')
+
+        self.press_type_list = QComboBox(self)
+        self.press_type_list.addItem('Press')
+        self.press_type_list.addItem('Down')
+        self.press_type_list.addItem('Up')
+
+        self.amount_of_presses = QSpinBox(self)
+        self.amount_of_presses.setRange(1, 100)
+        self.amount_of_presses.setSingleStep(1)
+
+        self.time_box = QDoubleSpinBox(self)
+        self.time_box.setRange(0.0, 10.0)
+        self.time_box.setSingleStep(0.1)
+        self.time_box.setDecimals(1)
+
+        self.add_to_script_button = QPushButton("Add to script")
+        self.add_to_script_button.clicked.connect(self.add_to_script_line)
+
+        self.delete_script_button = QPushButton("Remove last script")
+        self.delete_script_button.clicked.connect(self.remove_last_script)
+
+        self.buttons_layout = QHBoxLayout()
+        self.buttons_layout.addWidget(self.add_to_script_button)
+        self.buttons_layout.addWidget(self.delete_script_button)
+
+        self.script_line = QLineEdit(self)
+        self.script_line.setReadOnly(True)
+
+        self.lower_buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+
+        # main layout ###
+        vertical_layout = QVBoxLayout(self)
+        vertical_layout.addLayout(self.movement_type_layout)
+        vertical_layout.addLayout(self.x_y_coordinates_layout)
+        vertical_layout.addWidget(self.movement_time)
+        vertical_layout.addWidget(self.button_list)
+        vertical_layout.addWidget(self.press_type_list)
+        vertical_layout.addWidget(self.amount_of_presses)
+        vertical_layout.addWidget(self.time_box)
+        vertical_layout.addLayout(self.buttons_layout)
+        vertical_layout.addWidget(self.script_line)
+        vertical_layout.addWidget(self.lower_buttons)
+
+        # button connects ###
+        self.lower_buttons.accepted.connect(self.accept)
+        self.lower_buttons.rejected.connect(self.reject)
+
+        # properties ###
+        self.setModal(True)
+        self.setWindowTitle('Mouse script')
+
+    def retrieve_script(self):
+        return f"{self.get_movement_type()},{self.x_coordinate.value()},{self.y_coordinate.value()}," \
+               f"{self.movement_time.value():.1f},{self.button_list.currentText()}," \
+               f"{self.press_type_list.currentText()},{self.amount_of_presses.value()},{self.time_box.value():.1f};"
+
+    def add_to_script_line(self):
+        self.script_line.setText(self.script_line.text() + self.retrieve_script())
+
+    def remove_last_script(self):
+        scripts = [e+";" for e in self.script_line.text().split(";") if e]
+        if len(scripts) > 0:
+            del scripts[-1]
+            self.script_line.setText(''.join(scripts))
+
+    def get_movement_type(self):
+        for i in range(self.movement_type_layout.count()):
+            if self.movement_type_layout.itemAt(i).widget().isChecked():
+                return self.movement_type_layout.itemAt(i).widget().text()
+
+    @staticmethod
+    def get_script(parent=None):
+        dialog = MouseScriptDialog(parent)
         ok = dialog.exec_()
         return dialog.script_line.text(), ok == QDialog.Accepted

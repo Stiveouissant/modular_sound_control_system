@@ -24,7 +24,7 @@ class PitchRecognition(QThread):
         super(PitchRecognition, self).__init__(parent=parent)
         self.hann_window = np.hanning(self.WINDOW_SIZE)
         self.window_samples = [0 for _ in range(self.WINDOW_SIZE)]
-        self.noteBuffer = ["1", "2", "3"]
+        self.note_buffer = ["1", "2", "3"]
         self.recognised_note = ""
         self.stream = None
 
@@ -85,12 +85,12 @@ class PitchRecognition(QThread):
             max_freq = round(max_freq, 1)
             closest_pitch = round(closest_pitch, 1)
 
-            self.noteBuffer.insert(0, closest_note)  # note that this is a ringbuffer
-            self.noteBuffer.pop()
+            self.note_buffer.insert(0, closest_note)  # note that this is a ringbuffer
+            self.note_buffer.pop()
 
-            majority_vote = max(set(self.noteBuffer), key=self.noteBuffer.count)
+            majority_vote = max(set(self.note_buffer), key=self.note_buffer.count)
 
-            if self.noteBuffer.count(majority_vote) > 1:
+            if self.note_buffer.count(majority_vote) > 1:
                 detected_note = majority_vote
             else:
                 return

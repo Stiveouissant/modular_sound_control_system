@@ -2,7 +2,7 @@ import os
 import webbrowser
 import pyautogui
 import time
-
+from datetime import datetime
 
 def execute_task(task, data):
     if task == "Open File":
@@ -13,6 +13,8 @@ def execute_task(task, data):
         _simulate_keyboard_input(data)
     elif task == "Write Text":
         _write_text(data)
+    elif task == 'Take Screenshot':
+        _take_screenshot()
 
 
 def _execute_file(filepath):
@@ -45,4 +47,10 @@ def _simulate_keyboard_input(script):
 
 def _write_text(text):
     pyautogui.write(text)
+
+
+def _take_screenshot():
+    datename = str(datetime.now())
+    datename = datename.replace(":", ".")
+    pyautogui.screenshot('screenshots/'+datename+'.png')
 
