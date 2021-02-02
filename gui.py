@@ -559,6 +559,11 @@ class MouseScriptDialog(QDialog):
         self.amount_of_presses.setRange(1, 100)
         self.amount_of_presses.setSingleStep(1)
 
+        self.interval_between_presses = QDoubleSpinBox(self)
+        self.interval_between_presses.setRange(0.0, 10.0)
+        self.interval_between_presses.setSingleStep(0.1)
+        self.interval_between_presses.setDecimals(2)
+
         self.time_box = QDoubleSpinBox(self)
         self.time_box.setRange(0.0, 10.0)
         self.time_box.setSingleStep(0.1)
@@ -589,6 +594,7 @@ class MouseScriptDialog(QDialog):
         vertical_layout.addWidget(self.button_list)
         vertical_layout.addWidget(self.press_type_list)
         vertical_layout.addWidget(self.amount_of_presses)
+        vertical_layout.addWidget(self.interval_between_presses)
         vertical_layout.addWidget(self.time_box)
         vertical_layout.addLayout(self.buttons_layout)
         vertical_layout.addWidget(self.script_line)
@@ -605,7 +611,8 @@ class MouseScriptDialog(QDialog):
     def retrieve_script(self):
         return f"{self.get_movement_type()},{self.x_coordinate.value()},{self.y_coordinate.value()}," \
                f"{self.movement_time.value():.1f},{self.button_list.currentText()}," \
-               f"{self.press_type_list.currentText()},{self.amount_of_presses.value()},{self.time_box.value():.1f};"
+               f"{self.press_type_list.currentText()},{self.amount_of_presses.value()}," \
+               f"{self.interval_between_presses.value()},{self.time_box.value():.1f};"
 
     def add_to_script_line(self):
         self.script_line.setText(self.script_line.text() + self.retrieve_script())
