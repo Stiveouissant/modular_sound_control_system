@@ -60,7 +60,9 @@ def _simulate_mouse_input(script):
         else:
             pyautogui.moveTo(int(inst[1]), int(inst[2]), float(inst[3]))
 
-        if inst[4] == 'scroll-up':
+        if inst[4] == 'none':
+            pass
+        elif inst[4] == 'scroll-up':
             pyautogui.scroll(int(inst[6]))
         elif inst[4] == 'scroll-down':
             pyautogui.scroll(-int(inst[6]))
@@ -71,7 +73,7 @@ def _simulate_mouse_input(script):
                 pyautogui.mouseDown(button=inst[4])
             else:
                 pyautogui.mouseUp(button=inst[4])
-            time.sleep(float(inst[8]))
+        time.sleep(float(inst[8]))
 
 
 def _write_text(text):

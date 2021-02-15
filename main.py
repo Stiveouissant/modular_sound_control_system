@@ -132,11 +132,21 @@ class GraphUpdateThread(QThread):
         self.exiting = True
         self.wait()
 
+    # def change_mic(self, device_input):
+    #     self.stream.stop_stream()
+    #     self.stream.close()
+    #     print("Input device:" + str(device_input))
+    #     self.stream = self.p.open(format=pyaudio.paInt16, channels=1,
+    #                               rate=44000, input=True, frames_per_buffer=self.chunk,
+    #                               input_device_index=device_input)
+
     def run(self):
+        self.exiting = False
         while not self.exiting:
             data = np.frombuffer(self.stream.read(self.chunk), dtype=np.int16)
             data = [-2500 if x < -2500 else 2500 if x > 2500 else x for x in data]
             self.signal.emit(data)
+        return
 
 
 class MainWidget(QWidget, UIMainWidget):
@@ -176,7 +186,7 @@ class MainWidget(QWidget, UIMainWidget):
 
         self.stop = None  # variable for storing stop function for background listening
         self.r = sr.Recognizer()  # recognizer for speech to text
-        self.r.energy_threshold = 3000 # higher the value - louder the room
+        self.r.energy_threshold = 3000  # higher the value - louder the room
         # r.pause_threshold = 0.4  # how many seconds of silence before processing audio
 
         # Sound detection setup
@@ -191,26 +201,47 @@ class MainWidget(QWidget, UIMainWidget):
         self.graph_thread.start()
         self.graph_thread.signal.connect(self.graph_update)
 
+    # def reinitialize_graph(self):
+    #     self.graph_thread.__del__()
+    #     self.graph_thread.change_mic(self.mic_input_index)
+    #     self.graph_thread.start()
+
     def graph_update(self, data):
         self.sound_visual.plot(np.arange(self.chunk), data, clear=True)
 
     def open_settings_menu(self):
         """ Opens settings menu """
-        mics = self.valid_input_devices()
-        microphone_index, ok = SettingsDialog.get_settings(mic_list=mics)
+        # for api in range(self.p.get_host_api_count()):
+        #     print(self.p.get_host_api_info_by_index(api))
+        #
+        # for device in range(self.p.get_device_count()):
+        #     print(self.p.get_device_info_by_index(device))
+        apis = self.get_apis()
+        mics = self.get_valid_input_devices()
+        # print(mics)
+        # print(apis)
+        microphone_index, ok = SettingsDialog.get_settings(api_list=apis, mic_list=mics)
         if not ok:
             return
         self.mic_input_index = microphone_index
-        if self.stop is not None:
-            self.activate_recognition(False)
+        self.activate_recognition(False)
+        # self.reinitialize_graph()
 
     # MICROPHONE SETUP ###
 
-    def valid_test(self, device):
+    def get_apis(self):
+        """ Return the list of available sound APIs in the system. """
+        apis = []
+        for api in range(self.p.get_host_api_count()):
+            api_info = self.p.get_host_api_info_by_index(api)
+            apis.append({'name': api_info.get('name'), 'index': api_info.get('index')})
+        return apis
+
+    def input_device_validation_test(self, device):
         """ Given a device ID and a rate, return TRUE/False if it's valid. """
         try:
             self.mic_info = self.p.get_device_info_by_index(device)
-            if self.mic_info["maxInputChannels"] < 1 or self.mic_info["hostApi"] != 0:
+            if self.mic_info["maxInputChannels"] < 1:  # or self.mic_info["hostApi"] != 0:
                 return False
             stream = self.p.open(format=pyaudio.paInt16, channels=1,
                                  input_device_index=device, frames_per_buffer=self.chunk,
@@ -220,12 +251,13 @@ class MainWidget(QWidget, UIMainWidget):
         except Exception:
             return False
 
-    def valid_input_devices(self):
+    def get_valid_input_devices(self):
         """ See which devices can be opened for microphone input. """
         mics = []
         for device in range(self.p.get_device_count()):
-            if self.valid_test(device):
-                mics.append({'name': self.mic_info.get('name'), 'index': self.mic_info.get('index')})
+            if self.input_device_validation_test(device):
+                mics.append({'name': self.mic_info.get('name'), 'index': self.mic_info.get('index'),
+                             'hostApi': self.mic_info.get('hostApi')})
         if len(mics) == 0:
             print("no microphone devices found!")
         return mics

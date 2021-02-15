@@ -12,7 +12,7 @@ class PitchRecognition(QThread):
     SAMPLE_FREQ = 48000  # sample frequency in Hz
     WINDOW_SIZE = 48000  # window size of the DFT in samples
     WINDOW_STEP = 12000  # step size of window
-    WINDOW_T_LEN = WINDOW_SIZE / SAMPLE_FREQ  # length of the window in seconds
+    WINDOW_T_LEN = WINDOW_SIZE / SAMPLE_FREQ  # length of the time window in seconds
     SAMPLE_T_LENGTH = 1 / SAMPLE_FREQ  # length between two samples in seconds
     NUM_HPS = 8  # max number of harmonic product spectrums
     DELTA_FREQ = (SAMPLE_FREQ / WINDOW_SIZE)  # frequency step width of the interpolated DFT

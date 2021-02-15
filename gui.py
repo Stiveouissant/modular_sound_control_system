@@ -377,16 +377,28 @@ class ManageProfilesDialog(QDialog):
 class SettingsDialog(QDialog):
     """ Settings window """
 
-    def __init__(self, parent=None, mic_list=[]):
+    def __init__(self, parent=None, api_list=[], mic_list=[]):
         super(SettingsDialog, self).__init__(parent)
 
-        mic_label = QLabel("Recording devices:", self)
+        self.api_list = api_list
+        self.mic_list = mic_list
 
-        # Microphone change combo box ###
+        device_label = QLabel("Recording devices:", self)
+
+        # Microphone change combo boxes ###
+        self.device_layout = QHBoxLayout()
+        self.apis_list = QComboBox(self)
+        for v in api_list:
+            self.apis_list.addItem(v.get('name'), v.get('index'))
+
         self.devices_list = QComboBox(self)
         self.devices_list.addItem('Default', -1)
-        for v in mic_list:
+        api_devices = [x for x in self.mic_list if self.apis_list.currentData() == x.get('hostApi')]
+        for v in api_devices:
             self.devices_list.addItem(v.get('name'), v.get('index'))
+
+        self.device_layout.addWidget(self.apis_list)
+        self.device_layout.addWidget(self.devices_list)
 
         self.lower_buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
@@ -394,25 +406,34 @@ class SettingsDialog(QDialog):
 
         # main layout ###
         vertical_layout = QVBoxLayout(self)
-        vertical_layout.addWidget(mic_label)
-        vertical_layout.addWidget(self.devices_list)
+        vertical_layout.addWidget(device_label)
+        vertical_layout.addLayout(self.device_layout)
         vertical_layout.addWidget(self.lower_buttons)
 
-        # button connects ###
+        # connects ###
         self.lower_buttons.accepted.connect(self.accept)
         self.lower_buttons.rejected.connect(self.reject)
+
+        self.apis_list.currentTextChanged.connect(self.api_changed)
 
         # properties ###
         self.setModal(True)  # can't leave the window before closing
         self.setWindowTitle('Settings')
+
+    def api_changed(self):
+        self.devices_list.clear()
+        api_devices = [x for x in self.mic_list if self.apis_list.currentData() == x.get('hostApi')]
+        self.devices_list.addItem('Default', -1)
+        for v in api_devices:
+            self.devices_list.addItem(v.get('name'), v.get('index'))
 
     def get_data(self):
         return self.devices_list.currentData()
 
     # creates dialog returns profile name and accept from dialog
     @staticmethod
-    def get_settings(parent=None, mic_list=[]):
-        dialog = SettingsDialog(parent, mic_list)
+    def get_settings(parent=None, api_list=[], mic_list=[]):
+        dialog = SettingsDialog(parent, api_list, mic_list)
         ok = dialog.exec_()
         return dialog.get_data(), ok == QDialog.Accepted
 
@@ -446,6 +467,12 @@ class KeyboardScriptDialog(QDialog):
                          'up', 'volumedown', 'volumemute', 'volumeup', 'win', 'winleft', 'winright', 'yen',
                          'command', 'option', 'optionleft', 'optionright']
 
+        # labels ###
+        self.keyboard_button_label = QLabel("Button:", self)
+        self.press_type_label = QLabel("Press type:", self)
+        self.time_box_label = QLabel("Time interval after execution:", self)
+
+        # inputs ###
         self.keyboard_button = QComboBox(self)
         for v in keyboard_keys:
             self.keyboard_button.addItem(v)
@@ -479,8 +506,11 @@ class KeyboardScriptDialog(QDialog):
 
         # main layout ###
         vertical_layout = QVBoxLayout(self)
+        vertical_layout.addWidget(self.keyboard_button_label)
         vertical_layout.addWidget(self.keyboard_button)
+        vertical_layout.addWidget(self.press_type_label)
         vertical_layout.addWidget(self.press_type_list)
+        vertical_layout.addWidget(self.time_box_label)
         vertical_layout.addWidget(self.time_box)
         vertical_layout.addLayout(self.buttons_layout)
         vertical_layout.addWidget(self.script_line)
@@ -506,9 +536,6 @@ class KeyboardScriptDialog(QDialog):
             del scripts[-1]
             self.script_line.setText(''.join(scripts))
 
-    # def callback_factory(self, k, v):
-    #     return lambda: self.key_button.setText('{0}_{1}'.format(k, v))
-
     @staticmethod
     def get_script(parent=None):
         dialog = KeyboardScriptDialog(parent)
@@ -522,6 +549,17 @@ class MouseScriptDialog(QDialog):
     def __init__(self, parent=None):
         super(MouseScriptDialog, self).__init__(parent)
 
+        # labels ###
+        self.movement_type_label = QLabel("Mouse movement type:", self)
+        self.coordinates_label = QLabel("X and Y coordinates:", self)
+        self.movement_time_label = QLabel("Movement time:", self)
+        self.button_list_label = QLabel("Button:", self)
+        self.press_type_label = QLabel("Press type:", self)
+        self.amount_of_presses_label = QLabel("Amount of presses:", self)
+        self.interval_label = QLabel("Time interval between presses:", self)
+        self.time_label = QLabel("Time interval after execution:", self)
+
+        # inputs ###
         self.movement_type_layout = QHBoxLayout()
         for v in ['Relative', 'Direct']:
             self.radio = QRadioButton(v)
@@ -544,16 +582,12 @@ class MouseScriptDialog(QDialog):
         self.movement_time.setDecimals(1)
 
         self.button_list = QComboBox(self)
-        self.button_list.addItem('left')
-        self.button_list.addItem('middle')
-        self.button_list.addItem('right')
-        self.button_list.addItem('scroll-up')
-        self.button_list.addItem('scroll-down')
+        for v in ['left', 'middle', 'right', 'none', 'scroll-up', 'scroll-down']:
+            self.button_list.addItem(v)
 
         self.press_type_list = QComboBox(self)
-        self.press_type_list.addItem('Press')
-        self.press_type_list.addItem('Down')
-        self.press_type_list.addItem('Up')
+        for v in ['Press', 'Down', 'Up']:
+            self.press_type_list.addItem(v)
 
         self.amount_of_presses = QSpinBox(self)
         self.amount_of_presses.setRange(1, 100)
@@ -588,31 +622,64 @@ class MouseScriptDialog(QDialog):
 
         # main layout ###
         vertical_layout = QVBoxLayout(self)
+        vertical_layout.addWidget(self.movement_type_label)
         vertical_layout.addLayout(self.movement_type_layout)
+        vertical_layout.addWidget(self.coordinates_label)
         vertical_layout.addLayout(self.x_y_coordinates_layout)
+        vertical_layout.addWidget(self.movement_time_label)
         vertical_layout.addWidget(self.movement_time)
+        vertical_layout.addWidget(self.button_list_label)
         vertical_layout.addWidget(self.button_list)
+        vertical_layout.addWidget(self.press_type_label)
         vertical_layout.addWidget(self.press_type_list)
+        vertical_layout.addWidget(self.amount_of_presses_label)
         vertical_layout.addWidget(self.amount_of_presses)
+        vertical_layout.addWidget(self.interval_label)
         vertical_layout.addWidget(self.interval_between_presses)
+        vertical_layout.addWidget(self.time_label)
         vertical_layout.addWidget(self.time_box)
         vertical_layout.addLayout(self.buttons_layout)
         vertical_layout.addWidget(self.script_line)
         vertical_layout.addWidget(self.lower_buttons)
 
-        # button connects ###
+        # connects ###
         self.lower_buttons.accepted.connect(self.accept)
         self.lower_buttons.rejected.connect(self.reject)
+
+        self.button_list.currentTextChanged.connect(self.on_button_list_changed)
 
         # properties ###
         self.setModal(True)
         self.setWindowTitle('Mouse script')
 
+    def on_button_list_changed(self, value):
+        if value == 'left' or value == 'right' or value == 'middle':
+            self.press_type_label.show()
+            self.press_type_list.show()
+            self.amount_of_presses_label.show()
+            self.amount_of_presses.show()
+            self.interval_label.show()
+            self.interval_between_presses.show()
+        elif value == 'none':
+            self.press_type_label.hide()
+            self.press_type_list.hide()
+            self.amount_of_presses_label.hide()
+            self.amount_of_presses.hide()
+            self.interval_label.hide()
+            self.interval_between_presses.hide()
+        elif value == 'scroll-up' or value == 'scroll-down':
+            self.press_type_label.hide()
+            self.press_type_list.hide()
+            self.amount_of_presses_label.show()
+            self.amount_of_presses.show()
+            self.interval_label.hide()
+            self.interval_between_presses.hide()
+
     def retrieve_script(self):
         return f"{self.get_movement_type()},{self.x_coordinate.value()},{self.y_coordinate.value()}," \
                f"{self.movement_time.value():.1f},{self.button_list.currentText()}," \
                f"{self.press_type_list.currentText()},{self.amount_of_presses.value()}," \
-               f"{self.interval_between_presses.value()},{self.time_box.value():.1f};"
+               f"{self.interval_between_presses.value():.2f},{self.time_box.value():.1f};"
 
     def add_to_script_line(self):
         self.script_line.setText(self.script_line.text() + self.retrieve_script())
