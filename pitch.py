@@ -4,6 +4,7 @@ import scipy.fftpack
 import os
 import copy
 import threading
+import time
 
 from PyQt5.QtCore import pyqtSignal, QThread
 
@@ -26,7 +27,11 @@ class PitchRecognition(QThread):
         self.window_samples = [0 for _ in range(self.WINDOW_SIZE)]
         self.note_buffer = ["1", "2", "3"]
         self.recognised_note = ""
+        self.pause_time = 0.0
         self.stream = None
+
+    def set_pause_time(self, pause_time):
+        self.pause_time = pause_time
 
     def find_closest_note(self, pitch):
         i = int(np.round(np.log2(pitch / self.CONCERT_PITCH) * 12))
@@ -34,7 +39,7 @@ class PitchRecognition(QThread):
         closest_pitch = self.CONCERT_PITCH * 2 ** (i / 12)
         return closest_note, closest_pitch
 
-    def pitch_callback(self, indata, frames, time, status):
+    def pitch_callback(self, indata, frames, timer, status):
         if status:
             print("status" + str(status))
         if any(indata):
@@ -97,6 +102,7 @@ class PitchRecognition(QThread):
             os.system('cls' if os.name == 'nt' else 'clear')
             print(f"Closest note: {closest_note} {max_freq}/{closest_pitch}")
             self.signal.emit(closest_note)
+            time.sleep(self.pause_time)
 
         else:
             print('no input')

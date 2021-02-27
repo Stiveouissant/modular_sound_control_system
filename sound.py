@@ -19,7 +19,7 @@ class SoundRecognition(QThread):
                                    input=True,
                                    frames_per_buffer=int(44100 * 0.03))
 
-        self.hard_tap_threshold = 0.17
+        self.hard_tap_threshold = 0.16
         self.light_tap_threshold = 0.1
         self.noise_count = 0
         self.error_count = 0
@@ -31,6 +31,10 @@ class SoundRecognition(QThread):
     def __del__(self):
         self.exiting = True
         self.wait()
+
+    def set_thresholds(self, light, hard):
+        self.light_tap_threshold = light
+        self.hard_tap_threshold = hard
 
     def get_rms(self, block):
         # RMS amplitude is defined as the square root of the

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from PyQt5.QtWidgets import QTableView, QPushButton, QButtonGroup, QGroupBox, QRadioButton, QComboBox, QInputDialog, \
-    QToolButton, QMenu, QDoubleSpinBox, QCheckBox, QSpinBox
+    QToolButton, QMenu, QDoubleSpinBox, QCheckBox, QSpinBox, QSlider
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QFileDialog
@@ -278,8 +278,8 @@ class AddTaskDialog(QDialog):
             self.bonus_label.setText('No bonus data required')
 
     def get_file_path(self):
-        file_name, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
-                                                   "All Files (*);;Executable Files (*.exe)")
+        file_name, _ = QFileDialog.getOpenFileName(self, "Choose a file to be opened after the trigger", "",
+                            "All Files (*);;Executable files (*.exe);;Batch files (*.bat);;Powershell scripts (*.ps1)")
         self.bonus_data.setText(file_name)
 
     def get_keyboard_script(self):
@@ -377,28 +377,62 @@ class ManageProfilesDialog(QDialog):
 class SettingsDialog(QDialog):
     """ Settings window """
 
-    def __init__(self, parent=None, api_list=[], mic_list=[]):
+    def __init__(self, parent=None):  # , api_list=[], mic_list=[]):
         super(SettingsDialog, self).__init__(parent)
 
-        self.api_list = api_list
-        self.mic_list = mic_list
+        # labels ###
+        # device_label = QLabel("Recording devices:", self)
+        self.energy_threshold_label = QLabel("Noise adjustment for Speech module:", self)
+        self.sound_thresholds_label = QLabel("Light (left) and hard (right) sound thresholds for Sound module:", self)
+        self.pitch_delay_label = QLabel("Pause after recognizing pitch in Pitch module:", self)
 
-        device_label = QLabel("Recording devices:", self)
+        # inputs ###
 
-        # Microphone change combo boxes ###
-        self.device_layout = QHBoxLayout()
-        self.apis_list = QComboBox(self)
-        for v in api_list:
-            self.apis_list.addItem(v.get('name'), v.get('index'))
+        # self.api_list = api_list
+        # self.mic_list = mic_list
+        #
+        # # Microphone change combo boxes ###
+        # self.device_layout = QHBoxLayout()
+        # self.apis_list = QComboBox(self)
+        # for v in api_list:
+        #     self.apis_list.addItem(v.get('name'), v.get('index'))
+        #
+        # self.devices_list = QComboBox(self)
+        # self.devices_list.addItem('Default', -1)
+        # api_devices = [x for x in self.mic_list if self.apis_list.currentData() == x.get('hostApi')]
+        # for v in api_devices:
+        #     self.devices_list.addItem(v.get('name'), v.get('index'))
+        #
+        # self.device_layout.addWidget(self.apis_list)
+        # self.device_layout.addWidget(self.devices_list)
 
-        self.devices_list = QComboBox(self)
-        self.devices_list.addItem('Default', -1)
-        api_devices = [x for x in self.mic_list if self.apis_list.currentData() == x.get('hostApi')]
-        for v in api_devices:
-            self.devices_list.addItem(v.get('name'), v.get('index'))
+        # Speech module settings ###
+        self.speech_layout = QHBoxLayout()
+        self.energy_threshold = QSlider(Qt.Horizontal)
+        self.energy_threshold.setMinimum(0)
+        self.energy_threshold.setMaximum(10000)
+        self.energy_threshold_number = QLabel("", self)
+        self.speech_layout.addWidget(self.energy_threshold)
+        self.speech_layout.addWidget(self.energy_threshold_number)
 
-        self.device_layout.addWidget(self.apis_list)
-        self.device_layout.addWidget(self.devices_list)
+        # Sound module settings ###
+        self.sound_layout = QHBoxLayout()
+        self.light_tap = QDoubleSpinBox(self)
+        self.light_tap.setRange(0.04, 0.13)
+        self.light_tap.setSingleStep(0.01)
+        self.light_tap.setDecimals(2)
+        self.hard_tap = QDoubleSpinBox(self)
+        self.hard_tap.setRange(0.14, 0.20)
+        self.hard_tap.setSingleStep(0.01)
+        self.hard_tap.setDecimals(2)
+        self.sound_layout.addWidget(self.light_tap)
+        self.sound_layout.addWidget(self.hard_tap)
+
+        # Pitch module settings ###
+        self.pitch_delay = QDoubleSpinBox(self)
+        self.pitch_delay.setRange(0.0, 2.0)
+        self.pitch_delay.setSingleStep(0.1)
+        self.pitch_delay.setDecimals(1)
 
         self.lower_buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
@@ -406,34 +440,44 @@ class SettingsDialog(QDialog):
 
         # main layout ###
         vertical_layout = QVBoxLayout(self)
-        vertical_layout.addWidget(device_label)
-        vertical_layout.addLayout(self.device_layout)
+        # vertical_layout.addWidget(device_label)
+        # vertical_layout.addLayout(self.device_layout)
+        vertical_layout.addWidget(self.energy_threshold_label)
+        vertical_layout.addLayout(self.speech_layout)
+        vertical_layout.addWidget(self.sound_thresholds_label)
+        vertical_layout.addLayout(self.sound_layout)
+        vertical_layout.addWidget(self.pitch_delay_label)
+        vertical_layout.addWidget(self.pitch_delay)
         vertical_layout.addWidget(self.lower_buttons)
 
         # connects ###
+        self.energy_threshold.valueChanged.connect(self.energy_threshold_number_display)
         self.lower_buttons.accepted.connect(self.accept)
         self.lower_buttons.rejected.connect(self.reject)
 
-        self.apis_list.currentTextChanged.connect(self.api_changed)
+        # self.apis_list.currentTextChanged.connect(self.api_changed)
 
         # properties ###
         self.setModal(True)  # can't leave the window before closing
         self.setWindowTitle('Settings')
 
-    def api_changed(self):
-        self.devices_list.clear()
-        api_devices = [x for x in self.mic_list if self.apis_list.currentData() == x.get('hostApi')]
-        self.devices_list.addItem('Default', -1)
-        for v in api_devices:
-            self.devices_list.addItem(v.get('name'), v.get('index'))
+    # def api_changed(self):
+    #     self.devices_list.clear()
+    #     api_devices = [x for x in self.mic_list if self.apis_list.currentData() == x.get('hostApi')]
+    #     self.devices_list.addItem('Default', -1)
+    #     for v in api_devices:
+    #         self.devices_list.addItem(v.get('name'), v.get('index'))
+
+    def energy_threshold_number_display(self):
+        self.energy_threshold_number.setText(str(self.energy_threshold.value()))
 
     def get_data(self):
-        return self.devices_list.currentData()
+        return self.energy_threshold.value(), self.light_tap.value(), self.hard_tap.value(), self.pitch_delay.value()
 
     # creates dialog returns profile name and accept from dialog
     @staticmethod
-    def get_settings(parent=None, api_list=[], mic_list=[]):
-        dialog = SettingsDialog(parent, api_list, mic_list)
+    def get_settings(parent=None):  # , api_list=[], mic_list=[]):
+        dialog = SettingsDialog(parent)  # , api_list, mic_list)
         ok = dialog.exec_()
         return dialog.get_data(), ok == QDialog.Accepted
 

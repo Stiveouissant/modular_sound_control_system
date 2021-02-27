@@ -98,7 +98,7 @@ class MainWindow(QMainWindow):
         print("Help Content")
 
     def about(self):
-        print("About")
+        TaskHandler.execute_task("Open URL", "https://github.com/Stiveouissant/modular_sound_control_system")
 
     def closeEvent(self, event):
 
@@ -211,20 +211,28 @@ class MainWidget(QWidget, UIMainWidget):
 
     def open_settings_menu(self):
         """ Opens settings menu """
+        self.activate_recognition(False)
         # for api in range(self.p.get_host_api_count()):
         #     print(self.p.get_host_api_info_by_index(api))
         #
         # for device in range(self.p.get_device_count()):
         #     print(self.p.get_device_info_by_index(device))
-        apis = self.get_apis()
-        mics = self.get_valid_input_devices()
+        # apis = self.get_apis()
+        # mics = self.get_valid_input_devices()
         # print(mics)
         # print(apis)
-        microphone_index, ok = SettingsDialog.get_settings(api_list=apis, mic_list=mics)
+        settings, ok = SettingsDialog.get_settings()
         if not ok:
             return
-        self.mic_input_index = microphone_index
-        self.activate_recognition(False)
+        # self.mic_input_index = microphone_index
+        self.r.energy_threshold = settings[0]
+        self.sound_detector.set_thresholds(settings[1], settings[2])
+        self.pitch_tracker.set_pause_time(settings[3])
+        print(settings[0])
+        print(settings[1])
+        print(settings[2])
+        print(settings[3])
+
         # self.reinitialize_graph()
 
     # MICROPHONE SETUP ###
@@ -285,6 +293,7 @@ class MainWidget(QWidget, UIMainWidget):
             else:
                 if self.pitch_tracker.stream is not None:
                     self.pitch_tracker.stop_stream()
+            window.set_temporary_message("Active recognition stopped!")
 
     def activate_speech_recognition(self):
         window.set_temporary_message("Speech recognition activated")
